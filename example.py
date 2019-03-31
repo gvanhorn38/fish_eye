@@ -2,13 +2,17 @@
 Example usage.
 """
 
+import matplotlib
 from matplotlib import pyplot as plt
 from scipy import interpolate
+import numpy as np
+import imageio
+from IPython.display import HTML
 
 import load_aris
 
 # Specify a path to an aris data file
-aris_fp = "aris_samples/2018-07-10_210000_Raw_2150_2310.aris"
+aris_fp = "aris_samples/ARIS_2018-03-27_160000_F11_B96_S1290_T14_R0-27.aris"
 beam_width_fp = "beam_widths/BeamWidths_ARIS1800_96.h" # Assumes you are in the project directory
 
 frame_data, meshgrid_X, meshgrid_Y = load_aris.load_frames(aris_fp=aris_fp, beam_width_fp=beam_width_fp)
@@ -20,7 +24,6 @@ f = interpolate.interp1d([0, 255], [0, 80])
 plt.figure()
 plt.ion()
 for i in range(num_frames):
-
     plt.pcolormesh(meshgrid_X, meshgrid_Y, f(frame_data[i]), vmin=0, vmax=80)
     plt.title("Frame: %d" % i)
     plt.ylabel("Meters")
@@ -28,5 +31,6 @@ for i in range(num_frames):
     cbar = plt.colorbar()
     cbar.ax.set_ylabel("dB")
     plt.show()
-    r = raw_input()
+
+    r = input() # had to replace with input() for Python 3
     plt.clf()

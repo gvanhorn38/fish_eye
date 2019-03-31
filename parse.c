@@ -19,6 +19,7 @@ $ gcc -DNDEBUG -shared -Wl,-soname,arisparse -o arisparse.so -fPIC -O1 -Wall par
 #define NOT_ARIS_FILE       -4
 #define CORRUPT_ARIS_FILE   -5
 #define IO_ERROR            -6
+#define INDEX_NOT_FOUND     -7
 
 
 size_t get_beams_from_pingmode(uint32_t pingmode) {
@@ -91,6 +92,74 @@ int get_video_stats(const char* inputPath, long * samples_per_beam, long * num_b
     *samples_per_beam = frameHeader.SamplesPerBeam;
     *num_beams = get_beams_from_pingmode(frameHeader.PingMode);
     *num_frames = dataSize / frameSize;
+
+    return 0;
+}
+
+int get_frame_index(const char* inputPath, uint64_t time, long * num_frames) {
+
+    FILE* fpIn = NULL;
+    struct ArisFileHeader fileHeader;
+    struct ArisFrameHeader frameHeader;
+    long fileSize = 0, dataSize = 0, frameSize = 0, frameCount = 0;
+
+    fpIn = fopen(inputPath, "rb");
+    if (!fpIn) {
+        fprintf(stderr, "Couldn't open the input file.\n");
+        return CANT_OPEN_INPUT;
+    }
+
+    if (fseek(fpIn, 0, SEEK_END)) {
+        fprintf(stderr, "Couldn't determine file size.\n");
+        return IO_ERROR;
+    }
+
+    fileSize = ftell(fpIn);
+    fseek(fpIn, 0, SEEK_SET);
+    dataSize = fileSize - sizeof(struct ArisFileHeader);
+
+    if (fread(&fileHeader, sizeof(fileHeader), 1, fpIn) != 1) {
+        fprintf(stderr, "Couldn't read complete file header.\n");
+        return NOT_ARIS_FILE;
+    }
+
+    if (fileHeader.Version != ARIS_FILE_SIGNATURE) {
+        fprintf(stderr, "Invalid file header.\n");
+        return NOT_ARIS_FILE;
+    }
+
+    if (fread(&frameHeader, sizeof(frameHeader), 1, fpIn) != 1) {
+        fprintf(stderr, "Couldn't read first frame buffer.\n");
+        return CORRUPT_ARIS_FILE;
+    }
+
+    frameSize = (long)(frameHeader.SamplesPerBeam * get_beams_from_pingmode(frameHeader.PingMode));
+    frameCount = dataSize / frameSize;
+    *num_frames = frameCount;
+
+    printf("Delta: %llu\n", time);
+    if (time < frameHeader.FrameTime) {
+        fprintf(stderr, "Frame index is not in this ARIS file.\n");
+        return INDEX_NOT_FOUND;
+    }
+    int index = 0;
+    uint64_t mytime = 0;
+    do {
+        // This is where we get FrameTime for each frame!
+        if (time > frameHeader.FrameTime) {
+            index = frameHeader.FrameIndex + 1;
+            mytime = frameHeader.FrameTime;
+        }
+        else {
+            printf("Delta: %llu", time);
+            printf(", FrameIndex: %u", index);
+            printf(", FrameTime: %llu\n", mytime);
+            return index;
+        }
+
+        // Skip over the frame data
+        fseek(fpIn, frameSize, SEEK_CUR);
+    } while (fread(&frameHeader, sizeof(frameHeader), 1, fpIn) == 1);
 
     return 0;
 }
