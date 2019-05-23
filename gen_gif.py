@@ -45,11 +45,12 @@ def store_data(annot_fp, json_fp):
 					row[i] = float('nan')
 
 	# Store into nested dictionary:
-	data = {}
+	oregon = {}
 	frames = {}
-	data['info'] = ''
-	data['annotations'] = frames
+	oregon['info'] = ''
+	oregon['annotations'] = frames
 	id = 0
+	# print(data)
 	for row in data[1:]:
 		frame = {}
 		frame['id'] = id
@@ -59,7 +60,7 @@ def store_data(annot_fp, json_fp):
 		id += 1
 
 	# Store as JSON file:
-	json.dump(data, open(json_fp, 'w'))
+	json.dump(oregon, open(json_fp, 'w'))
 
 
 def get_annotations(json_fp):
@@ -83,9 +84,26 @@ def get_annotations(json_fp):
 		if value['Date'] != '' and value['Time'] != '':
 			time = datetime.strptime(value['Date'] + ' ' + value['Time'],
 									'%Y-%m-%d %H:%M:%S')
-			spottings.append(time)
+			spottings.append([key, time])
 	return spottings
 
+def get_datetime(index, fm_index, aris_dir='aris_samples/', json_fp='oregon.json'):
+	spotting_dates = get_annotations(json_fp) # holds the DATETIME of each annotation
+	delta, filename = get_frame_time(index, spotting_dates)
+
+	aris_fp = aris_dir + filename
+	lib = np.ctypeslib.load_library("arisparse.so", os.path.dirname(".")) # added '.so'
+	get_ft = lib.get_ft
+	inputPath = ctypes.c_char_p(aris_fp.encode('utf-8')) # have to convert string to bytes first
+	frame_time = ctypes.c_uint64()
+	get_ft(inputPath, ctypes.c_int(fm_index), ctypes.byref(frame_time))
+	frame_time = frame_time.value
+
+	start = datetime(1970, 1, 1) # FrameTime reference
+	dt = start + timedelta(microseconds=frame_time)
+	dt = dt.strftime('%Y-%m-%d %H:%M:%S')
+	return str(dt)
+	
 
 def get_frame_time(index, spottings, 
 				path_name='aris_samples'):
@@ -111,13 +129,17 @@ def get_frame_time(index, spottings,
 	# Convert aris filenames to DATETIME objects so we can compare them.
 	names = listdir(path_name)
 	names.sort()
+	names = names[2:]
 	dts = []
 	for n in names:
 		dt = datetime.strptime(n[5:22], '%Y-%m-%d_%H%M%S') # dataset specific
 		dts.append(dt)
 
 	start = datetime(1970, 1, 1) # FrameTime reference
-	end = spottings[index] # just testing
+	# print("length:", len(spottings))
+	# print("index:", index)
+	end = spottings[index][1]
+	print("end:", end)
 	this_dt = dts[0]
 	filename = ''
 	for dt in dts:
@@ -129,7 +151,7 @@ def get_frame_time(index, spottings,
 		if this_dt.strftime('%Y-%m-%d_%H%M%S') in name: # specific to this dataset
 			filename = name
 	delta = (end - start).total_seconds() * (1e6)
-	print("FILENAME:", filename)
+	# print("FILENAME:", filename)
 	return delta, filename
 
 
@@ -153,8 +175,10 @@ def get_frames(index, N, json_fp, aris_dir, annot_fp):
 	# Stores csv file into json object
 	store_data(annot_fp, json_fp)
 
+	# print("START1")
 	spotting_dates = get_annotations(json_fp) # holds the DATETIME of each annotation
 	frame_time, filename = get_frame_time(index, spotting_dates)
+	# print("END1")
 	
 	aris_fp = aris_dir + filename
 	lib = np.ctypeslib.load_library("arisparse.so", os.path.dirname(".")) # added '.so'
@@ -162,14 +186,12 @@ def get_frames(index, N, json_fp, aris_dir, annot_fp):
 	inputPath = ctypes.c_char_p(aris_fp.encode('utf-8')) # have to convert string to bytes first
 	delta = ctypes.c_uint64(int(frame_time))
 	num_frames = ctypes.c_long()
-	index = get_frame_index(inputPath, delta, ctypes.byref(num_frames))
-	
-	print("NUM_FRAMES:", num_frames.value)
+	frame_index = get_frame_index(inputPath, delta, ctypes.byref(num_frames))
 
-	if index == -7:
+	if frame_index == -7:
 		return []
 	else:
-		min_i, max_i = index-N, index+N
+		min_i, max_i = frame_index-N, frame_index+N
 		if min_i < 0:
 			min_i = 0
 		if max_i >= num_frames.value:
@@ -177,24 +199,33 @@ def get_frames(index, N, json_fp, aris_dir, annot_fp):
 		return range(min_i, max_i+1)
 
 
-def gen_image(index, frame_data, meshgrid_X, meshgrid_Y):
+def gen_image(fm_index, index, json_fp, frame_data, meshgrid_X, meshgrid_Y):
 	"""
-	Generates image for the frame labelled by 'index'.
+	Generates image for the frame labelled by 'fm_index'.
 
 	Arguments:
-		index: Index of the frame in the ARIS file, 1-based (int).
+		fm_index: Index of the frame in the ARIS file, 1-based (int).
 		frame_data: List containing data for each frame in ARIS file.
 		meshgrid_X: List of mesh grid X values.
 		meshgrid_Y: List of mesh grid Y values.
 
 	Returns:
-		image: Image for the inidividual frame.
+		image: Image for the individual frame.
 	"""
+
+	# Retrieve from JSON file:
+	data = json.load(open(json_fp,'r'))
+	annotations = data['annotations']
+	direc = annotations[spottings[index][0]]['Direction']
+	# direc = annotations[str(index)]['Direction']
 
 	f = interpolate.interp1d([0, 255], [0, 80])
 	fig, ax = plt.subplots(figsize=(10,5))
-	im = ax.pcolormesh(meshgrid_X, meshgrid_Y, f(frame_data[index]), vmin=0, vmax=80)
-	ax.set_title("Frame: %d" % index)
+	im = ax.pcolormesh(meshgrid_X, meshgrid_Y, f(frame_data[fm_index]), vmin=0, vmax=80)
+	dt = get_datetime(index, fm_index)
+	ax.set_title("Frame: %d\nDatetime: %r\nDirection: %r" % (fm_index, dt, direc))
+	# ax.set_title("Datetime: %r" % dt) # Add more information as part of title
+	# print("datetime:", dt)
 	ax.set(xlabel='Meters', ylabel='Meters')
 	cbar = fig.colorbar(im, ax=ax)
 	cbar.ax.set_ylabel('dB')
@@ -213,7 +244,8 @@ def gen_gif(index, N, json_fp, csv_fp, gif_name):
 	Generates a GIF for the recorded observation.
 
 	Arguments:
-		index: Index of the frame in the ARIS file, 1-based (int).
+		index: The id (0-based index) that identifies the recorded observation
+		       (int).
 		N: The window (+/- N frames) around the frame of observation (int).
 	"""
 	spottings = get_annotations(json_fp)
@@ -232,13 +264,14 @@ def gen_gif(index, N, json_fp, csv_fp, gif_name):
 	frame_data, meshgrid_X, meshgrid_Y = load_aris.load_frames(aris_fp=aris_fp, frame_range=frame_range, beam_width_fp=beam_width_fp)
 	num_frames = frame_data.shape[0]
 
-	gif_fp = 'GIFs/' + gif_name + str(index) + '.gif'
-	imageio.mimsave(gif_fp, [gen_image(i, frame_data, meshgrid_X, meshgrid_Y) for i in frame_range], fps=4.2)
+	# gif_fp = 'GIFs/' + gif_name + str(index) + '.gif'
+	gif_fp = 'GIFs/TEST2.gif'
+	imageio.mimsave(gif_fp, [gen_image(i, index, json_fp, frame_data, meshgrid_X, meshgrid_Y) for i in frame_range], fps=4.2)
 	print("datetime:", spottings[index])
 
 
 # Generate example GIF for window of +/- 20 frames around the 6th recorded observation in 'raw_data_steelhead.csv'.
-gen_gif(6, 20, json_fp='oregon.json', csv_fp='../raw_data_steelhead.csv', gif_name='oregon_')
+gen_gif(20, 250, json_fp='oregon.json', csv_fp='../raw_data_steelhead.csv', gif_name='oregon_')
 # for i in range(25):
 # 	print("INDEX ", i)
 # 	gen_gif(i, 20, json_fp='oregon.json', csv_fp='../raw_data_steelhead.csv', gif_name='oregon_')

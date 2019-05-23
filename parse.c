@@ -13,6 +13,7 @@ $ gcc -DNDEBUG -shared -Wl,-soname,arisparse -o arisparse.so -fPIC -O1 -Wall par
 //#include <math.h>
 #include <stddef.h>
 #include <string.h>
+// #include <Python.h>
 
 #define CANT_OPEN_INPUT     -2
 #define CANT_OPEN_OUTPUT    -3
@@ -96,6 +97,95 @@ int get_video_stats(const char* inputPath, long * samples_per_beam, long * num_b
     return 0;
 }
 
+int get_ft(const char* inputPath, int fm_index, uint64_t *ft) {
+
+    FILE* fpIn = NULL;
+    struct ArisFileHeader fileHeader;
+    struct ArisFrameHeader frameHeader;
+    long fileSize = 0, dataSize = 0, frameSize = 0, frameCount = 0;
+
+    fpIn = fopen(inputPath, "rb");
+    if (!fpIn) {
+        fprintf(stderr, "Couldn't open the input file.\n");
+        return CANT_OPEN_INPUT;
+    }
+
+    if (fseek(fpIn, 0, SEEK_END)) {
+        fprintf(stderr, "Couldn't determine file size.\n");
+        return IO_ERROR;
+    }
+
+    fileSize = ftell(fpIn);
+    fseek(fpIn, 0, SEEK_SET);
+    dataSize = fileSize - sizeof(struct ArisFileHeader);
+
+    if (fread(&fileHeader, sizeof(fileHeader), 1, fpIn) != 1) {
+        fprintf(stderr, "Couldn't read complete file header.\n");
+        return NOT_ARIS_FILE;
+    }
+
+    if (fileHeader.Version != ARIS_FILE_SIGNATURE) {
+        fprintf(stderr, "Invalid file header.\n");
+        return NOT_ARIS_FILE;
+    }
+
+    if (fread(&frameHeader, sizeof(frameHeader), 1, fpIn) != 1) {
+        fprintf(stderr, "Couldn't read first frame buffer.\n");
+        return CORRUPT_ARIS_FILE;
+    }
+
+    frameSize = (long)(frameHeader.SamplesPerBeam * get_beams_from_pingmode(frameHeader.PingMode));
+    frameCount = dataSize / frameSize;
+
+    if (fm_index >= frameCount) {
+        fprintf(stderr, "Frame index is not in this ARIS file.\n");
+        return INDEX_NOT_FOUND;
+    }
+    do {
+        if (frameHeader.FrameIndex == fm_index) {
+            // printf("size of int: %lu \n", sizeof(int));
+            *ft = frameHeader.FrameTime;
+            // return frameHeader.FrameTime;
+        }
+        // Skip over the frame data
+        fseek(fpIn, frameSize, SEEK_CUR);
+    } while (fread(&frameHeader, sizeof(frameHeader), 1, fpIn) == 1);
+
+    return 0;
+}
+
+int get_frame_rate(const char* inputPath, float *frameRate) {
+    FILE* fpIn = NULL;
+    struct ArisFileHeader fileHeader;
+    struct ArisFrameHeader frameHeader;
+
+    fpIn = fopen(inputPath, "rb");
+    if (!fpIn) {
+        fprintf(stderr, "Couldn't open the input file.\n");
+        return CANT_OPEN_INPUT;
+    }
+
+    if (fseek(fpIn, 0, SEEK_END)) {
+        fprintf(stderr, "Couldn't determine file size.\n");
+        return IO_ERROR;
+    }
+    fseek(fpIn, 0, SEEK_SET);
+    if (fread(&fileHeader, sizeof(fileHeader), 1, fpIn) != 1) {
+        fprintf(stderr, "Couldn't read complete file header.\n");
+        return NOT_ARIS_FILE;
+    }
+    if (fileHeader.Version != ARIS_FILE_SIGNATURE) {
+        fprintf(stderr, "Invalid file header.\n");
+        return NOT_ARIS_FILE;
+    }
+    if (fread(&frameHeader, sizeof(frameHeader), 1, fpIn) != 1) {
+        fprintf(stderr, "Couldn't read first frame buffer.\n");
+        return CORRUPT_ARIS_FILE;
+    }
+    *frameRate = frameHeader.FrameRate;
+    return 0;
+}
+
 int get_frame_index(const char* inputPath, uint64_t time, long * num_frames) {
 
     FILE* fpIn = NULL;
@@ -136,6 +226,7 @@ int get_frame_index(const char* inputPath, uint64_t time, long * num_frames) {
     frameSize = (long)(frameHeader.SamplesPerBeam * get_beams_from_pingmode(frameHeader.PingMode));
     frameCount = dataSize / frameSize;
     *num_frames = frameCount;
+    // float rate = frameHeader.FrameRate;
 
     printf("Delta: %llu\n", time);
     if (time < frameHeader.FrameTime) {
@@ -154,6 +245,8 @@ int get_frame_index(const char* inputPath, uint64_t time, long * num_frames) {
             printf("Delta: %llu", time);
             printf(", FrameIndex: %u", index);
             printf(", FrameTime: %llu\n", mytime);
+            // printf("\n");
+            // printf("FrameRate: %f\n", rate);
             return index;
         }
 

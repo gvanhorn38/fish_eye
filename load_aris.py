@@ -1,4 +1,3 @@
-
 import os
 import ctypes
 import numpy as np
@@ -27,9 +26,7 @@ get_frame_data.argtypes = [
 def load_beam_widths(fp="beam_widths/BeamWidths_ARIS1800_96.h", max_frames=1000):
 	beam_widths = []
 	index = -1
-	print("HASDFJAKDFLSA")
 	with open(fp,'r') as f:
-		print("OPENED!!!")
 		for line in f:
 			index += 1
 			# print("INDEX:", index)
@@ -108,7 +105,6 @@ def load_frames(aris_fp, frame_range=[], beam_width_fp="beam_widths/BeamWidths_A
 	print("LOAD BEAM WIDTHS")
 	# Load in the beam widths
 	beam_width_data = load_beam_widths(beam_width_fp)
-	print("FINISHED")
 
 	# lets make the mesh grid
 	WindowStart = sample_start_delay * 1e-6 * sound_speed / 2
