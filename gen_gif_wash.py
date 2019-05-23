@@ -185,6 +185,7 @@ def get_frame_time(index, spottings,
 		if this_dt.strftime('%Y-%m-%d_%H%M%S') in name: # specific to this dataset
 			filename = name
 	delta = (end - start).total_seconds() * (1e6)
+	print("FILENAME:", filename)
 	return delta, filename
 
 
@@ -227,9 +228,9 @@ def get_frames(index, N, json_fp, aris_dir, annot_fp, data):
 			max_i = num_frames.value - 1
 		# return range(5680, 5750)
 		# return range(5704, 5708)
-		# return range(min_i, max_i+1)
+		return range(min_i, max_i+1)
 		# return range(699, 749)
-		return range(720, 730)
+		# return range(720, 730)
 
 
 def gen_gif(index, json_fp, csv_fp):
@@ -321,13 +322,7 @@ def gen_gif(index, json_fp, csv_fp):
 
 
 
-# gen_gif(1, json_fp='washington.json', csv_fp='../raw_data_washington.csv')
-
-# gen_gif(2, json_fp='washington.json', csv_fp='../raw_data_washington.csv')
-# gen_gif(3, json_fp='washington.json', csv_fp='../raw_data_washington.csv')
-# gen_gif(4, json_fp='washington.json', csv_fp='../raw_data_washington.csv')
-# gen_gif(5, json_fp='washington.json', csv_fp='../raw_data_washington.csv')
-gen_gif(7, json_fp, csv_fp)
+gen_gif(1, json_fp, csv_fp)
 
 
 
