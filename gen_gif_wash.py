@@ -4,7 +4,7 @@ import csv
 import math
 import ctypes
 import matplotlib
-import imageio
+#import imageio
 import numpy as np
 from os import listdir
 from matplotlib import pyplot as plt
@@ -138,14 +138,14 @@ def get_datetime(index, fm_index, data):
 	dt = start + timedelta(microseconds=frame_time)
 	dt = dt.strftime('%Y-%m-%d %H:%M:%S')
 	return str(dt), frame_time
-	
 
-def get_frame_time(index, spottings, 
+
+def get_frame_time(index, spottings,
 				path_name=aris_dir[:-1]):
 	"""
 	Calculates the FrameTime (PC time stamp when recorded, in microseconds since
 	01/01/1970, as described by the ARIS documentation) of the annotation and
-	gives the file name of the ARIS file that contains the recorded 
+	gives the file name of the ARIS file that contains the recorded
 	observation.
 
 	Arguments:
@@ -154,7 +154,7 @@ def get_frame_time(index, spottings,
 		path_name: Path to directory storing all ARIS files.
 
 	Returns:
-		delta: The FrameTime (ie timestamp of recorded observation) in 
+		delta: The FrameTime (ie timestamp of recorded observation) in
 			   microseconds (float).
 		filename: The filename of the ARIS file most likely containing the
 				  recorded observation (string).
@@ -200,7 +200,7 @@ def get_frames(index, N, json_fp, aris_dir, annot_fp, data):
 		json_fp: Filepath of the JSON file (string).
 		aris_dir: Path of the directory storing the ARIS files (string).
 		annot_fp: Filepath to the annotations file in CSV format.
-	
+
 	Returns:
 		range(min_i, max_i+1): A list of frames that will make up our GIF that
 							   visualizes the observation.
@@ -209,7 +209,7 @@ def get_frames(index, N, json_fp, aris_dir, annot_fp, data):
 
 	spotting_dates = get_annotations(json_fp, data) # holds the DATETIME of each annotation
 	frame_time, filename = get_frame_time(index, spotting_dates)
-	
+
 	aris_fp = aris_dir + filename
 	lib = np.ctypeslib.load_library("arisparse.so", os.path.dirname(".")) # added '.so'
 	get_frame_index = lib.get_frame_index
@@ -255,7 +255,7 @@ def gen_gif(index, json_fp, csv_fp):
 	spottings = get_annotations(json_fp, data)
 
 	# aris_dir = 'aris_samples/Washington/'
-	
+
 	# Specify a path to an aris data file
 	filename = get_frame_time(index, spottings)[1]
 	aris_fp = aris_dir + filename 	# filename is an ARIS filename
@@ -290,7 +290,7 @@ def gen_gif(index, json_fp, csv_fp):
 		return -1
 	os.mkdir(clip_dir)
 	os.mkdir(clip_dir + '/frames')	# create frame directory within clip directory
-	
+
 	direc = annotations[spottings[index][0]]['Direction']
 
 	print("Start:")
@@ -321,8 +321,120 @@ def gen_gif(index, json_fp, csv_fp):
 	print("datetime:", spottings[index])
 
 
+def gen_gif_gvh(json_fp, csv_fp, output_dir, max_videos=1):
+	"""
+	Generates a GIF for the recorded observation.
 
-gen_gif(1, json_fp, csv_fp)
+	Arguments:
+		index: The id (0-based index) that identifies the recorded observation
+			   (int).
+		N: The window (+/- N frames) around the frame of observation (int).
+	"""
+
+	#assert json_fp is not None
+	#assert csv_fp is not None
+	assert output_dir is not None
+
+	# print("7: gen_gif()\n")
+
+	# Stores csv data in JSON file if not done so already.
+	if not os.path.isfile(json_fp):
+		# Stores csv file into json object
+		store_data(csv_fp, json_fp)
+
+	# Retrieve from JSON file:
+	data = json.load(open(json_fp,'r'))
+
+	spottings = get_annotations(json_fp, data)
+
+	# aris_dir = 'aris_samples/Washington/'
+
+	index =1
+
+	# Specify a path to an aris data file
+	filename = get_frame_time(index, spottings)[1]
+	aris_fp = aris_dir + filename 	# filename is an ARIS filename
+	# beam_width_fp = "beam_widths/BeamWidths_ARIS1800_96.h" # Assumes you are in the project directory
+
+	# Get frame rate of ARIS file:
+	lib = np.ctypeslib.load_library("arisparse.so", os.path.dirname(".")) # added '.so'
+	get_frame_rate = lib.get_frame_rate
+	inputPath = ctypes.c_char_p(aris_fp.encode('utf-8')) # have to convert string to bytes first
+	frame_rate = ctypes.c_float()
+	get_frame_rate(inputPath, ctypes.byref(frame_rate))
+	frame_rate = frame_rate.value
+	print("frame_rate:", frame_rate)
+	N = math.ceil(30*frame_rate)  # Gets number of frames per 30 seconds as window.
+
+	print("Loading Frame Data")
+	frame_data, meshgrid_X, meshgrid_Y = load_aris.load_frames(aris_fp=aris_fp, frame_range=[], beam_width_fp=beam_width_fp)
+	print("End loading framed data")
+
+	# make a directory for all of the clips
+	if not os.path.exists(output_dir):
+		os.makedirs(output_dir)
+
+
+	for index in range(max_videos):
+
+		print("Working on index: %d" % (index, ))
+
+		frame_range = get_frames(index, N, json_fp, aris_dir, csv_fp, data)
+		if len(frame_range) == 0:
+			return
+		print(frame_range)
+
+
+		num_frames = frame_data.shape[0]
+
+		annotations = data['annotations']
+		num_fish = annotations[spottings[index][0]]['num_fish']
+		# Create clip directory:
+		print(filename)
+		date = datetime.strptime(filename[:17], '%Y-%m-%d_%H%M%S') # dataset specific
+		clip_dir = os.path.join(output_dir, 'elwha_wa_' + spottings[index][1].strftime('%d_%m_%Y_%H_%M_%S_') + str(num_fish))
+		if os.path.isdir(clip_dir):
+			print("Error!", clip_dir, " is an existing directory.")
+			return -1
+		os.mkdir(clip_dir)
+		os.mkdir(clip_dir + '/frames')	# create frame directory within clip directory
+
+		direc = annotations[spottings[index][0]]['Direction']
+
+		print("Start:")
+		f = interpolate.interp1d([0, 255], [0, 80])
+		for i in frame_range:
+			print(i)
+			fig = plt.figure(figsize=(12,20))
+			dt, frame_time = get_datetime(index, i, data)
+			plt.pcolormesh(meshgrid_X, meshgrid_Y, f(frame_data[i]), cmap=cm.YlGnBu_r, vmin=0, vmax=80)
+			plt.title("Frame: %d\nDatetime: %r\nDirection: %r" % (i, dt, direc))
+			plt.ylabel("Meters")
+			plt.xlabel("Meters")
+			cbar = plt.colorbar()
+			cbar.ax.set_ylabel('dB')
+			fig_path = clip_dir + '/frames/'
+
+			# Saves frame:
+			date = datetime.strptime(dt, '%Y-%m-%d %H:%M:%S')
+			plt.savefig('{}/frames/{}_{}_elwha_wa_{}.jpeg'.format(clip_dir, i, frame_time, date.strftime('%d_%m_%Y_%H_%M_%S')))
+			plt.close(fig)
+
+		np.savez(clip_dir + '/' + clip_dir, frame_data, meshgrid_X, meshgrid_Y)  # save numpy file
+
+		vid_name = clip_dir + '/' + clip_dir + '.mp4'
+		cmmd_line = "ffmpeg -framerate " + str(frame_rate) + " -pattern_type glob -i '" + clip_dir + "/frames/*.jpeg' " + "-c:v libx264 -r 30 -pix_fmt yuv420p " + vid_name
+		os.system(cmmd_line)
+		# os.system("ffmpeg -framerate 7.5 -pattern_type glob -i 'testing2/*.jpeg' -c:v libx264 -r 30 -pix_fmt yuv420p testing2.mp4")
+		print("datetime:", spottings[index])
+
+
+if __name__ == '__main__':
+
+	#gen_gif(1, json_fp, csv_fp)
+
+	gen_gif_gvh(json_fp='washington.json', csv_fp=None, output_dir='/Users/GVH/Desktop/elwa_data', max_videos=1)
+
 
 
 

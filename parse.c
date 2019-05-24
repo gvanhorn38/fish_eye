@@ -65,6 +65,7 @@ int get_video_stats(const char* inputPath, long * samples_per_beam, long * num_b
 
     if (fseek(fpIn, 0, SEEK_END)) {
         fprintf(stderr, "Couldn't determine file size.\n");
+        fclose(fpIn);
         return IO_ERROR;
     }
 
@@ -74,16 +75,19 @@ int get_video_stats(const char* inputPath, long * samples_per_beam, long * num_b
 
     if (fread(&fileHeader, sizeof(fileHeader), 1, fpIn) != 1) {
         fprintf(stderr, "Couldn't read complete file header.\n");
+        fclose(fpIn);
         return NOT_ARIS_FILE;
     }
 
     if (fileHeader.Version != ARIS_FILE_SIGNATURE) {
         fprintf(stderr, "Invalid file header.\n");
+        fclose(fpIn);
         return NOT_ARIS_FILE;
     }
 
     if (fread(&frameHeader, sizeof(frameHeader), 1, fpIn) != 1) {
         fprintf(stderr, "Couldn't read first frame buffer.\n");
+        fclose(fpIn);
         return CORRUPT_ARIS_FILE;
     }
 
@@ -93,6 +97,8 @@ int get_video_stats(const char* inputPath, long * samples_per_beam, long * num_b
     *samples_per_beam = frameHeader.SamplesPerBeam;
     *num_beams = get_beams_from_pingmode(frameHeader.PingMode);
     *num_frames = dataSize / frameSize;
+
+    fclose(fpIn);
 
     return 0;
 }
@@ -112,6 +118,7 @@ int get_ft(const char* inputPath, int fm_index, uint64_t *ft) {
 
     if (fseek(fpIn, 0, SEEK_END)) {
         fprintf(stderr, "Couldn't determine file size.\n");
+        fclose(fpIn);
         return IO_ERROR;
     }
 
@@ -121,16 +128,19 @@ int get_ft(const char* inputPath, int fm_index, uint64_t *ft) {
 
     if (fread(&fileHeader, sizeof(fileHeader), 1, fpIn) != 1) {
         fprintf(stderr, "Couldn't read complete file header.\n");
+        fclose(fpIn);
         return NOT_ARIS_FILE;
     }
 
     if (fileHeader.Version != ARIS_FILE_SIGNATURE) {
         fprintf(stderr, "Invalid file header.\n");
+        fclose(fpIn);
         return NOT_ARIS_FILE;
     }
 
     if (fread(&frameHeader, sizeof(frameHeader), 1, fpIn) != 1) {
         fprintf(stderr, "Couldn't read first frame buffer.\n");
+        fclose(fpIn);
         return CORRUPT_ARIS_FILE;
     }
 
@@ -151,6 +161,7 @@ int get_ft(const char* inputPath, int fm_index, uint64_t *ft) {
         fseek(fpIn, frameSize, SEEK_CUR);
     } while (fread(&frameHeader, sizeof(frameHeader), 1, fpIn) == 1);
 
+    fclose(fpIn);
     return 0;
 }
 
@@ -167,22 +178,27 @@ int get_frame_rate(const char* inputPath, float *frameRate) {
 
     if (fseek(fpIn, 0, SEEK_END)) {
         fprintf(stderr, "Couldn't determine file size.\n");
+        fclose(fpIn);
         return IO_ERROR;
     }
     fseek(fpIn, 0, SEEK_SET);
     if (fread(&fileHeader, sizeof(fileHeader), 1, fpIn) != 1) {
         fprintf(stderr, "Couldn't read complete file header.\n");
+        fclose(fpIn);
         return NOT_ARIS_FILE;
     }
     if (fileHeader.Version != ARIS_FILE_SIGNATURE) {
         fprintf(stderr, "Invalid file header.\n");
+        fclose(fpIn);
         return NOT_ARIS_FILE;
     }
     if (fread(&frameHeader, sizeof(frameHeader), 1, fpIn) != 1) {
         fprintf(stderr, "Couldn't read first frame buffer.\n");
+        fclose(fpIn);
         return CORRUPT_ARIS_FILE;
     }
     *frameRate = frameHeader.FrameRate;
+    fclose(fpIn);
     return 0;
 }
 
@@ -201,6 +217,7 @@ int get_frame_index(const char* inputPath, uint64_t time, long * num_frames) {
 
     if (fseek(fpIn, 0, SEEK_END)) {
         fprintf(stderr, "Couldn't determine file size.\n");
+        fclose(fpIn);
         return IO_ERROR;
     }
 
@@ -210,16 +227,19 @@ int get_frame_index(const char* inputPath, uint64_t time, long * num_frames) {
 
     if (fread(&fileHeader, sizeof(fileHeader), 1, fpIn) != 1) {
         fprintf(stderr, "Couldn't read complete file header.\n");
+        fclose(fpIn);
         return NOT_ARIS_FILE;
     }
 
     if (fileHeader.Version != ARIS_FILE_SIGNATURE) {
         fprintf(stderr, "Invalid file header.\n");
+        fclose(fpIn);
         return NOT_ARIS_FILE;
     }
 
     if (fread(&frameHeader, sizeof(frameHeader), 1, fpIn) != 1) {
         fprintf(stderr, "Couldn't read first frame buffer.\n");
+        fclose(fpIn);
         return CORRUPT_ARIS_FILE;
     }
 
@@ -254,6 +274,8 @@ int get_frame_index(const char* inputPath, uint64_t time, long * num_frames) {
         fseek(fpIn, frameSize, SEEK_CUR);
     } while (fread(&frameHeader, sizeof(frameHeader), 1, fpIn) == 1);
 
+    fclose(fpIn);
+
     return 0;
 }
 
@@ -272,6 +294,7 @@ int get_frame_data(const char* inputPath, int frame_index, uint8_t * frameData, 
 
     if (fseek(fpIn, 0, SEEK_END)) {
         fprintf(stderr, "Couldn't determine file size.\n");
+        fclose(fpIn);
         return IO_ERROR;
     }
 
@@ -281,16 +304,19 @@ int get_frame_data(const char* inputPath, int frame_index, uint8_t * frameData, 
 
     if (fread(&fileHeader, sizeof(fileHeader), 1, fpIn) != 1) {
         fprintf(stderr, "Couldn't read complete file header.\n");
+        fclose(fpIn);
         return NOT_ARIS_FILE;
     }
 
     if (fileHeader.Version != ARIS_FILE_SIGNATURE) {
         fprintf(stderr, "Invalid file header.\n");
+        fclose(fpIn);
         return NOT_ARIS_FILE;
     }
 
     if (fread(&frameHeader, sizeof(frameHeader), 1, fpIn) != 1) {
         fprintf(stderr, "Couldn't read first frame buffer.\n");
+        fclose(fpIn);
         return CORRUPT_ARIS_FILE;
     }
 
@@ -331,6 +357,8 @@ int get_frame_data(const char* inputPath, int frame_index, uint8_t * frameData, 
     //float RangeEnd         = WindowStart + WindowLength;
     //float SampleRange = WindowStart + frameHeader.SamplePeriod * idx * 1e-6 * frameHeader.SoundSpeed  / 2;
     //float SampleLength     = frameHeader.SamplePeriod *  1e-6 * frameHeader.SoundSpeed  / 2;
+
+    fclose(fpIn);
 
     return 0;
 }
