@@ -11,6 +11,7 @@ The most recent version can be found at: https://github.com/EminentCodfish/pyARI
 """
 
 import struct, array, pytz, datetime, tqdm
+import os
 import subprocess as sp
 from matplotlib import cm as colormap
 from PIL import Image, ImageFont, ImageDraw
@@ -893,7 +894,7 @@ def compute_mapping_from_sample_to_image(pixel_meter_size, xdim, ydim, x_meter_s
     XYpairs = XYpairs[valid_pairs]
     IJpairs = IJpairs[valid_pairs]
 
-    # Get the distance of the xy paris
+    # Get the distance of the xy pairs
     hyp =  XYpairs[:,1] / np.cos(np.arctan(XYpairs[:,0] / XYpairs[:,1]))
 
     # Take into account the window start
@@ -940,7 +941,7 @@ def compute_mapping_from_sample_to_image(pixel_meter_size, xdim, ydim, x_meter_s
 
 def make_video(data,
     xdim, ydim, sample_read_rows, sample_read_cols, image_write_rows, image_write_cols,
-    filename, fps = 24.0, start_frame = 1, end_frame = None, timestamp = False, fontsize = 30, ts_pos = (0,0)):
+    directory, filename, fps = 24.0, start_frame = 1, end_frame = None, timestamp = False, fontsize = 30, ts_pos = (0,0)):
     """Output video using the ffmpeg pipeline. The current implementation
     outputs compresses png files and outputs a mp4.
 
@@ -974,18 +975,22 @@ def make_video(data,
     command = ['ffmpeg',
            '-y', # (optional) overwrite output file if it exists
            '-f', 'image2pipe',
-           '-vcodec', 'png', #'mjpeg',
+           '-vcodec', 'mjpeg', #'mjpeg',
            '-r', '1',
            '-r', str(fps), # frames per second
            '-i', '-', # The input comes from a pipe
            '-an', # Tells FFMPEG not to expect any audio
            '-vcodec', 'mpeg4',
            '-b:v', '5000k',
-           filename,
+           directory + filename + "/"+filename+".mp4",
            '-hide_banner',
            '-loglevel', 'panic']
 
-    #Open the pipe
+    # Create directory if one doesn't exist
+    if not os.path.exists(directory+filename+'/frames/'):
+        os.makedirs(directory+filename+'/frames/')
+
+    # Open the pipe
     pipe = sp.Popen(command, stdin=sp.PIPE)
 
     if end_frame == None:
@@ -994,12 +999,20 @@ def make_video(data,
 
     cm = colormap.get_cmap('viridis')
 
-    #Iterate through the dataframes and push to pipe
+    # Iterate through the dataframes and push to pipe
     font = ImageFont.truetype("./arial.ttf", fontsize)
+    j = 0
+    
+    all_frame_data = []
+    file = open(directory+filename+"/info.txt", 'a')
+
     for i in tqdm.tqdm(range(start_frame, end_frame)):
         frame = FrameRead(data, i)
         frame_image = np.zeros([ydim, xdim], dtype=np.uint8)
         frame_image[image_write_rows, image_write_cols] = frame.frame_data[sample_read_rows, sample_read_cols]
+
+        all_frame_data.append(frame.frame_data)
+
         im = Image.fromarray(cm(frame_image, bytes=True))
 
         if timestamp == True:
@@ -1007,7 +1020,21 @@ def make_video(data,
             text = "%s\n%d" % (ts, i)
             draw = ImageDraw.Draw(im)
             draw.text(ts_pos,text,font=font, fill = 'white')
-
-        im.save(pipe.stdin, 'PNG')
+        try:
+            rgb_im = im.convert('RGB')
+            rgb_im.save(directory+filename+'/frames/'+str(j)+'.jpg'  , "JPEG")
+            rgb_im.save(pipe.stdin, 'JPEG')
+            file.write(str(i)+'_'+str(frame.sonartimestamp)+'_'+filename+"\n")
+        except:
+            pipe = sp.Popen(command, stdin=sp.PIPE)
+            rgb_im = im.convert('RGB')
+            rgb_im.save(directory+filename+'/frames/'+str(j)+'.jpg'  , "JPEG")
+            rgb_im.save(pipe.stdin, 'JPEG')
+            file.write(str(i)+'_'+str(frame.sonartimestamp)+'_'+filename+"\n")
+        j += 1
+    
+    all_frame_data = np.array(all_frame_data)
+    np.savez(directory+filename + '/' + filename, frame_data=all_frame_data, sample_read_rows=sample_read_rows, sample_read_cols=sample_read_cols, image_write_rows=image_write_rows, image_write_cols=image_write_cols)  # save numpy file
 
     pipe.stdin.close()
+
