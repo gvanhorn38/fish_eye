@@ -82,7 +82,7 @@ def getJSONFromData(clip_name, directory='/Volumes/Trout_Data/Elwha/clips/'):
 			points = [int(polygon.findall('pt/x')[0].text), int(polygon.findall('pt/y')[0].text),
 					  int(polygon.findall('pt/x')[2].text), int(polygon.findall('pt/y')[1].text)]
 			annotation['area'] = (points[2]-points[0]) * (points[3]-points[1])
-			annotation['bbox'] = [points[0], points[2], points[2]-points[0], points[3]-points[1]]
+			annotation['bbox'] = [points[0], points[1], points[2]-points[0], points[3]-points[1]] ##
 			annotation['iscrowd'] = 0
 			annotations.append(annotation)
 			annot_id += 1
