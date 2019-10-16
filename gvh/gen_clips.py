@@ -225,7 +225,7 @@ def main():
 	files = getAnnotFiles(aris_dir)
 	i = 0
 	for file in files:
-		print(i+"\n")
+		print(i,"\n")
 		gen_clip(file)
 		i += 1
 	
