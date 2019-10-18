@@ -68,9 +68,6 @@ def main():
 							# annotations in a file should be in order?
 
 				bbox = annotation['bbox']
-				
-				# Translate upper left to bottom left
-				bbox[1] += bbox[3];
 
 				if file_name in total_annotations:
 					total_annotations[file_name][i] = bbox
