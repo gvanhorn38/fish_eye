@@ -95,7 +95,7 @@ def main():
 
 	# Stage image and annotations
 	def draw_image_with_annotations(file_name):
-		image_path = os.path.join(args.frames, file_names[index])
+		image_path = os.path.join(args.frames, file_name)
 		if os.path.exists(image_path):
 			ax.cla()
 			ax.imshow(np.array(Image.open(image_path)))
@@ -105,9 +105,6 @@ def main():
 					rect = patches.Rectangle(bbox[:2],bbox[2],bbox[3],linewidth=1,edgecolor=colors[i],facecolor='none')
 				else:
 					rect = patches.Rectangle((bbox[0]+random.randint(-5,5),bbox[1]+bbox[3]+random.randint(-5,5)),bbox[2]+random.randint(-5,5),bbox[3]+random.randint(-5,5),linewidth=1,edgecolor=colors[i],facecolor='none')
-
-				# Draw debug bbox text
-				#plt.text(5, 20, str(bbox), fontsize=14, bbox=dict(facecolor='red', alpha=0.5))
 
 				# Layer annotation onto picture
 				ax.add_patch(rect)
@@ -135,11 +132,11 @@ def main():
 
 	# Save images
 	if args.save is not None:
-		for file_name, annotations in total_annotations.items():
+		for file_name in file_names:
 			draw_image_with_annotations(file_name)
 
-			# Save to CWD
-			plt.savefig(os.path.join(args.save, file_name + '.annotated.jpg'))
+			# Save to directory
+			plt.savefig(os.path.join(args.save, file_name + '.annotated.jpg'), dpi=200)
 
 	# Display images for viewing
 	if not args.nodisplay:
