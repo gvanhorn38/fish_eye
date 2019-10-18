@@ -31,7 +31,6 @@ def parse_data(annot_fp):
 		print("ERROR: No matches found!")
 		return 0
 
-	# print("Success")
 	data = matched.groups()
 	if data[15] == '':
 		return 1
@@ -130,6 +129,7 @@ def gen_clip(annot_file):
 
 	# Get annotations
 	json_path = json_dir + name + ".json"
+	# json_path = "/Users/Angelina/Desktop/University/Trout/fish_eye/test.json"
 	if not os.path.isfile(json_path):
 		store_data(annot_file, json_path)  # 1st param is annotation file path
 	data = json.load(open(json_path, "r"))
@@ -186,7 +186,6 @@ def gen_clip(annot_file):
 		file.write(str(clips[0]['interval'][0])+" "+str(clips[0]['interval'][1])+"\n")
 		file.write(str(datetime.strptime(date+clips[0]['time'], "%Y-%m-%d%H_%M_%S"))+"\n")
 
-	# print("dimensions:", xdim, ydim)
 	# Make a video using some of the frames
 	pyARIS.make_video(
 	    ARISdata,
@@ -225,7 +224,7 @@ def main():
 	files = getAnnotFiles(aris_dir)
 	i = 0
 	for file in files:
-		print(i+"\n")
+		print(str(i)+"\n")
 		gen_clip(file)
 		i += 1
 	
