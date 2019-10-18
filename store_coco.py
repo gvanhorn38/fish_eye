@@ -6,8 +6,10 @@ import json
 import uuid
 
 # Path names as global variables:
-directory = '/Volumes/Trout_Data/Elwha/annotations/'
+directory = '/Volumes/Trout_Data/Elwha/annotations2/'
+# directory = '/Users/Angelina/Desktop/annotations/'
 clip_dir = '/Volumes/Trout_Data/Elwha/clips/'
+# clip_dir = '/Users/Angelina/Desktop/clips/'
 
 
 def getJSONFromData(clip_name, directory='/Volumes/Trout_Data/Elwha/clips/'):
@@ -49,11 +51,16 @@ def getJSONFromData(clip_name, directory='/Volumes/Trout_Data/Elwha/clips/'):
 	# Store images:
 	clip_id = str(uuid.uuid4())
 	images = []
+	image_ids = {}
+	i = 0
 	j = 12
-	for filename in os.listdir(directory + clip_name + '/frames/'):
+	print(len(os.listdir(directory + clip_name + '/frames/')))
+	for i in range(len(os.listdir(directory + clip_name + '/frames/'))):
+		filename = str(i) + '.jpg'
 		path = directory + clip_name + '/frames/' + filename
 		image = {}
 		image['id'] = temp[j]
+		image_ids[i] = image['id']	# map image index (0-based) to image_id
 		image['clip_id'] = clip_id
 		im = Image.open(path)
 		image['width'], image['height'] = im.size
@@ -94,7 +101,7 @@ def getJSONFromData(clip_name, directory='/Volumes/Trout_Data/Elwha/clips/'):
 
 def main():
 	for file in os.listdir(clip_dir):
-		data = getJSONFromData(file)
+		data = getJSONFromData(file, directory=clip_dir)
 		if data != -1:
 			json.dump(data, open(directory+file+'.json', 'w'), default=str)
 
