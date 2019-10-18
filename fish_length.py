@@ -68,7 +68,9 @@ def main():
         image_path = os.path.join(args.frames, file_names[index])
         if os.path.exists(image_path):
             ax.cla()
-            ax.imshow(np.array(Image.open(image_path)))
+            image = Image.open(image_path)
+            ax.imshow(np.array(image))
+            image.close()
             if file_name in lines:
                 plt.plot(lines[file_name][0], lines[file_name][1], color='r')
                 ax.figure.canvas.draw()

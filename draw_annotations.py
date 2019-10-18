@@ -42,7 +42,9 @@ def main():
 			files.append(arg)
 
 	# Dimension of images
-	iwidth, iheight = Image.open(os.path.join(args.frames, '0.jpg')).size
+	image = Image.open(os.path.join(args.frames, '0.jpg'))
+	iwidth, iheight = image.size
+	image.close()
 
 	total_annotations = {}
 	image_id_to_file_name = {}
@@ -98,7 +100,9 @@ def main():
 		image_path = os.path.join(args.frames, file_name)
 		if os.path.exists(image_path):
 			ax.cla()
-			ax.imshow(np.array(Image.open(image_path)))
+			image = Image.open(image_path)
+			ax.imshow(np.array(image))
+			image.close()
 			for i, bbox in total_annotations[file_name].items():
 				# Draw rectangle
 				if not args.demo:
