@@ -41,12 +41,23 @@ def main():
 		else:
 			files.append(arg)
 
+	# Dimension of images
+	iwidth, iheight = Image.open(os.path.join(args.frames, '0.jpg')).size
+
 	total_annotations = {}
 	image_id_to_file_name = {}
 	# Collect annotations from json files, but don't draw
 	for i, file in enumerate(files):
 		with open(file) as json_file:
 			json_data = json.load(json_file)
+
+			# Dimension of annotation
+			awidth, aheight = json_data['info']['clip_dim']
+
+			# Dimension factors
+			widthf = iwidth / awidth
+			heightf = iheight / aheight
+
 			for annotation in json_data['annotations']:
 				# The annotations in the json only have an image_id, not
 				# the filename of the image, so in order to find the
@@ -68,6 +79,11 @@ def main():
 							# annotations in a file should be in order?
 
 				bbox = annotation['bbox']
+
+				bbox[0] *= widthf
+				bbox[1] *= heightf
+				bbox[2] *= widthf
+				bbox[3] *= heightf
 
 				if file_name in total_annotations:
 					total_annotations[file_name][i] = bbox
