@@ -76,7 +76,7 @@ def bbox_IOU(bbox1, bbox2, epsilon=1e-10):
 
 	return area_overlap / (bbox1[2]*bbox1[3] + bbox2[2]*bbox2[3] + epsilon - area_overlap)
 
-def average_IOU(json_file_path):
+def single_average_IOU(json_file_path):
 	"""
 	Calculates the average "Intersection over Union" over annotations.
 
@@ -92,4 +92,46 @@ def average_IOU(json_file_path):
 			if last_bbox:
 				IOUs.append(bbox_IOU(bbox, last_bbox))
 			last_bbox = bbox
+	return average(IOUs)
+
+def extract_bboxes(bboxes, json_file_path):
+	"""
+	Extract unit-scaled bboxes from a json_file.
+
+	:param json_file_name1: file path of first annotation json file
+	:param json_file_name2: file path of second annotation json file
+	:returns: average IOU
+	"""
+	with open(json_file_path) as json_file:
+		json_data = json.load(json_file)
+		width, height = json_data['info']['clip_dim']
+		for annotation in json_data['annotations']:
+			bbox = annotation['bbox']
+			bbox[0] /= width
+			bbox[1] /= height
+			bbox[2] /= width
+			bbox[3] /= height
+			bboxes.setdefault(annotation['image_id'],[]).append(bbox)
+
+def double_average_IOU(json_file_path1, json_file_path2):
+	"""
+	Calculates the average "Intersection over Union" over two sets of annotations.
+
+	:param json_file_name1: file path of first annotation json file
+	:param json_file_name2: file path of second annotation json file
+	:returns: average IOU
+	"""
+	bboxes = {}
+
+	extract_bboxes(bboxes, json_file_path1)
+	extract_bboxes(bboxes, json_file_path2)
+
+	IOUs = []
+
+	for _, value in bboxes.items():
+		if len(value) == 1:
+			IOUs.append(0)
+		else:
+			IOUs.append(bbox_IOU(*value))
+
 	return average(IOUs)

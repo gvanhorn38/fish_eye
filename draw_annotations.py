@@ -87,10 +87,7 @@ def main():
 				bbox[2] *= widthf
 				bbox[3] *= heightf
 
-				if file_name in total_annotations:
-					total_annotations[file_name][i] = bbox
-				else:
-					total_annotations[file_name] = {i : bbox}
+				total_annotations.setdefault(file_name,{})[i] = bbox
 
 	index = 0
 	file_names = list(total_annotations.keys())
