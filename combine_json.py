@@ -29,12 +29,14 @@ def main():
 					data['object']['bbox']['ymin'] = []
 					data['object']['bbox']['ymax'] = []
 					data['object']['bbox']['label'] = []
+					data['object']['count'] = 0
 					image_id_to_data[data['id']] = data
 
 				for annotation in json_data['annotations']:
 					data = image_id_to_data[annotation['image_id']]
 
 					data['class']['label'] += 1
+					data['object']['count'] += 1
 
 					data['object']['bbox']['xmin'].append(annotation['bbox'][0])
 					data['object']['bbox']['xmax'].append(annotation['bbox'][0] + annotation['bbox'][2])
