@@ -1017,7 +1017,7 @@ def make_video(data,
 
         im = Image.fromarray(cm(frame_image, bytes=True))
 
-        raw_im = Image.fromarray(frame.frame_data, mode='L')
+        raw_im = Image.fromarray(np.uint8(frame.frame_data), mode='L')
 
         if timestamp == True:
             ts = str(datetime.datetime.fromtimestamp(frame.sonartimestamp/1000000, pytz.timezone('UTC')).strftime('%Y-%m-%d %H:%M:%S'))
