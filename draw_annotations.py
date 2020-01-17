@@ -137,7 +137,7 @@ def main():
 			draw_image_with_annotations(file_name)
 
 			# Save to directory
-			plt.savefig(os.path.join(args.save, file_name + '.annotated.jpg'), dpi=200)
+			plt.savefig(os.path.join(args.save, os.path.splitext(file_name)[0] + '-annotated.jpg'), dpi=200)
 
 	# Display images for viewing
 	if not args.nodisplay:
