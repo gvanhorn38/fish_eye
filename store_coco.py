@@ -10,24 +10,34 @@ directory = '/Volumes/Trout_Data/Elwha/annotations3/'
 # directory = '/Users/Angelina/Desktop/annotations/'
 clip_dir = '/Volumes/Trout_Data/Elwha/clips/'
 # clip_dir = '/Users/Angelina/Desktop/clips/'
+from absl import app
+from absl import flags
+
+flags.DEFINE_string(
+	'annot_dir', '/Users/Angelina/Desktop/annotations/', 'Directory to output annotation files.'
+)
+flags.DEFINE_string(
+    'clip_dir', '/Users/Angelina/Desktop/clips/', 'Directory that contains generated clips.'
+)
+FLAGS = flags.FLAGS
 
 
-def getJSONFromData(clip_name, directory='/Volumes/Trout_Data/Elwha/clips/'):
+def getJSONFromData(annot_dir, clip_name):
+	clip_path = os.path.join(annot_dir, clip_name)
 	# Stop if no xml file found:
-	if not os.path.exists(directory + clip_name + '/output.xml'):
+	if not os.path.exists(os.path.join(clip_path, 'output.xml')):
 		return -1
 
 	print(clip_name)
 	info = {"clip_name": clip_name}
 	categories = [{"id": 1, "name": "fish", "supercategory": "fish"}]
-	licenses = [{"id": 0, "name": "", "url": ""}]
 	clip_data = {"info": info, "images": [], "annotations":[], "categories": categories}
 
-	tree = ET.parse(directory + clip_name + '/output.xml')
+	tree = ET.parse(os.path.join(clip_path, 'output.xml'))
 	root = tree.getroot()
 
 	# Store info data:
-	with open(directory + clip_name + "/info.txt") as file:
+	with open(os.path.join(clip_path, "info.txt")) as file:
 		temp = file.read().splitlines()
 	info['clip_name'] = temp[0]
 	info['aris_name'] = temp[1]
@@ -55,12 +65,12 @@ def getJSONFromData(clip_name, directory='/Volumes/Trout_Data/Elwha/clips/'):
 	image_ids = {}
 	i = 0
 	j = 12
-	# print(len(os.listdir(directory + clip_name + '/frames/')))
-	for i in range(len(os.listdir(directory + clip_name + '/frames/'))):
+	print(len(os.listdir(os.path.join(clip_path, 'frames/'))))
+	for i in range(len(os.listdir(os.path.join(clip_path, 'frames/')))):
 		filename = str(i) + '.jpg'
-		path = directory + clip_name + '/frames/' + filename
+		path = os.path.join(clip_path, 'frames', filename)
 		image = {}
-		image['id'] = temp[j]
+		image['id'] = temp[i+12]
 		image_ids[i] = image['id']	# map image index (0-based) to image_id
 		image['clip_id'] = clip_id
 		im = Image.open(path)
@@ -72,20 +82,18 @@ def getJSONFromData(clip_name, directory='/Volumes/Trout_Data/Elwha/clips/'):
 								+image['id'].split('_')[7] + image['id'].split('_')[8] + image['id'].split('_')[9],
 								"%Y%m%d%H%M%S")
 		images.append(image)
-		j += 1
 	clip_data["images"] = images
 
 	# Store annotations:
 	annotations = []
 	annot_id = 0
 	track_id = 0
-	for child in root.findall('object'):
-		for polygon in child.findall('polygon'):
+	for track_id, child in enumerate(root.findall('object')):
+		for annot_id, polygon in enumerate(child.findall('polygon')):
 			annotation = {}
 			annotation['id'] = annot_id
 			annotation['track_id'] = track_id
-			i = int(polygon.findall('t')[0].text)
-			annotation['image_id'] = image_ids[i]
+			annotation['image_id'] = image_ids[int(polygon.findall('t')[0].text)]
 			annotation['category_id'] = 1
 			points = [int(polygon.findall('pt/x')[0].text), int(polygon.findall('pt/y')[0].text),
 					  int(polygon.findall('pt/x')[2].text), int(polygon.findall('pt/y')[1].text)]
@@ -93,24 +101,18 @@ def getJSONFromData(clip_name, directory='/Volumes/Trout_Data/Elwha/clips/'):
 			annotation['bbox'] = [points[0], points[1], points[2]-points[0], points[3]-points[1]] ##
 			annotation['iscrowd'] = 0
 			annotations.append(annotation)
-			annot_id += 1
-		track_id += 1
 	clip_data["annotations"] = annotations
 
 	return clip_data
 
-
-def main():
-	for file in os.listdir(clip_dir):
-		data = getJSONFromData(file, directory=clip_dir)
-		if data != -1:
-			json.dump(data, open(directory+file+'.json', 'w'), default=str)
-
+def main(argv):
+	for file in os.listdir(FLAGS.clip_dir):
+		data = getJSONFromData(FLAGS.clip_dir, file)
+		if not data == -1:
+			json.dump(data, open(os.path.join(FLAGS.annot_dir, file + '.json'), 'w'), default=str)
 
 if __name__ == '__main__':
-	main()
-
-
+	app.run(main)
 
 
 

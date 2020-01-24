@@ -41,12 +41,25 @@ def main():
 		else:
 			files.append(arg)
 
+	# Dimension of images
+	image = Image.open(os.path.join(args.frames, '0.jpg'))
+	iwidth, iheight = image.size
+	image.close()
+
 	total_annotations = {}
 	image_id_to_file_name = {}
 	# Collect annotations from json files, but don't draw
 	for i, file in enumerate(files):
 		with open(file) as json_file:
 			json_data = json.load(json_file)
+
+			# Dimension of annotation
+			awidth, aheight = json_data['info']['clip_dim']
+
+			# Dimension factors
+			widthf = iwidth / awidth
+			heightf = iheight / aheight
+
 			for annotation in json_data['annotations']:
 				# The annotations in the json only have an image_id, not
 				# the filename of the image, so in order to find the
@@ -69,29 +82,30 @@ def main():
 
 				bbox = annotation['bbox']
 
-				if file_name in total_annotations:
-					total_annotations[file_name][i] = bbox
-				else:
-					total_annotations[file_name] = {i : bbox}
+				bbox[0] *= widthf
+				bbox[1] *= heightf
+				bbox[2] *= widthf
+				bbox[3] *= heightf
+
+				total_annotations.setdefault(file_name,{})[i] = bbox
 
 	index = 0
 	file_names = list(total_annotations.keys())
 
 	# Stage image and annotations
 	def draw_image_with_annotations(file_name):
-		image_path = os.path.join(args.frames, file_names[index])
+		image_path = os.path.join(args.frames, file_name)
 		if os.path.exists(image_path):
 			ax.cla()
-			ax.imshow(np.array(Image.open(image_path)))
+			image = Image.open(image_path)
+			ax.imshow(np.array(image))
+			image.close()
 			for i, bbox in total_annotations[file_name].items():
 				# Draw rectangle
 				if not args.demo:
 					rect = patches.Rectangle(bbox[:2],bbox[2],bbox[3],linewidth=1,edgecolor=colors[i],facecolor='none')
 				else:
 					rect = patches.Rectangle((bbox[0]+random.randint(-5,5),bbox[1]+bbox[3]+random.randint(-5,5)),bbox[2]+random.randint(-5,5),bbox[3]+random.randint(-5,5),linewidth=1,edgecolor=colors[i],facecolor='none')
-
-				# Draw debug bbox text
-				#plt.text(5, 20, str(bbox), fontsize=14, bbox=dict(facecolor='red', alpha=0.5))
 
 				# Layer annotation onto picture
 				ax.add_patch(rect)
@@ -119,11 +133,11 @@ def main():
 
 	# Save images
 	if args.save is not None:
-		for file_name, annotations in total_annotations.items():
+		for file_name in file_names:
 			draw_image_with_annotations(file_name)
 
-			# Save to CWD
-			plt.savefig(os.path.join(args.save, file_name + '.annotated.jpg'))
+			# Save to directory
+			plt.savefig(os.path.join(args.save, os.path.splitext(file_name)[0] + '-annotated.jpg'), dpi=200)
 
 	# Display images for viewing
 	if not args.nodisplay:

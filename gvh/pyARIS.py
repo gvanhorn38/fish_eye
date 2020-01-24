@@ -989,6 +989,8 @@ def make_video(data,
     # Create directory if one doesn't exist
     if not os.path.exists(directory+filename+'/frames/'):
         os.makedirs(directory+filename+'/frames/')
+    if not os.path.exists(directory+filename+'/frames-raw/'):
+        os.makedirs(directory+filename+'/frames-raw/')
 
     # Open the pipe
     pipe = sp.Popen(command, stdin=sp.PIPE)
@@ -1015,6 +1017,8 @@ def make_video(data,
 
         im = Image.fromarray(cm(frame_image, bytes=True))
 
+        raw_im = Image.fromarray(np.uint8(frame.frame_data), mode='L')
+
         if timestamp == True:
             ts = str(datetime.datetime.fromtimestamp(frame.sonartimestamp/1000000, pytz.timezone('UTC')).strftime('%Y-%m-%d %H:%M:%S'))
             text = "%s\n%d" % (ts, i)
@@ -1023,12 +1027,14 @@ def make_video(data,
         try:
             rgb_im = im.convert('RGB')
             rgb_im.save(directory+filename+'/frames/'+str(j)+'.jpg'  , "JPEG")
+            raw_im.save(directory+filename+'/frames-raw/'+str(j)+'.jpg'  , "JPEG")
             rgb_im.save(pipe.stdin, 'JPEG')
             file.write(str(i)+'_'+str(frame.sonartimestamp)+'_'+filename+"\n")
         except:
             pipe = sp.Popen(command, stdin=sp.PIPE)
             rgb_im = im.convert('RGB')
             rgb_im.save(directory+filename+'/frames/'+str(j)+'.jpg'  , "JPEG")
+            raw_im.save(directory+filename+'/frames-raw/'+str(j)+'.jpg'  , "JPEG")
             rgb_im.save(pipe.stdin, 'JPEG')
             file.write(str(i)+'_'+str(frame.sonartimestamp)+'_'+filename+"\n")
         j += 1
@@ -1037,4 +1043,3 @@ def make_video(data,
     np.savez(directory+filename + '/' + filename, frame_data=all_frame_data, sample_read_rows=sample_read_rows, sample_read_cols=sample_read_cols, image_write_rows=image_write_rows, image_write_cols=image_write_cols)  # save numpy file
 
     pipe.stdin.close()
-
