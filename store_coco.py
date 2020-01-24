@@ -6,7 +6,7 @@ import json
 import uuid
 
 # Path names as global variables:
-directory = '/Volumes/Trout_Data/Elwha/annotations2/'
+directory = '/Volumes/Trout_Data/Elwha/annotations3/'
 # directory = '/Users/Angelina/Desktop/annotations/'
 clip_dir = '/Volumes/Trout_Data/Elwha/clips/'
 # clip_dir = '/Users/Angelina/Desktop/clips/'
@@ -17,6 +17,7 @@ def getJSONFromData(clip_name, directory='/Volumes/Trout_Data/Elwha/clips/'):
 	if not os.path.exists(directory + clip_name + '/output.xml'):
 		return -1
 
+	print(clip_name)
 	info = {"clip_name": clip_name}
 	categories = [{"id": 1, "name": "fish", "supercategory": "fish"}]
 	licenses = [{"id": 0, "name": "", "url": ""}]
@@ -54,7 +55,7 @@ def getJSONFromData(clip_name, directory='/Volumes/Trout_Data/Elwha/clips/'):
 	image_ids = {}
 	i = 0
 	j = 12
-	print(len(os.listdir(directory + clip_name + '/frames/')))
+	# print(len(os.listdir(directory + clip_name + '/frames/')))
 	for i in range(len(os.listdir(directory + clip_name + '/frames/'))):
 		filename = str(i) + '.jpg'
 		path = directory + clip_name + '/frames/' + filename
