@@ -93,7 +93,7 @@ def extract_bboxes(bboxes, json_file_path):
 	"""
 	Extract unit-scaled bboxes from a json_file.
 
-	:param json_file_name1: file path annotation json file
+	:param json_file_path: file path annotation json file
 	:returns: bboxes through bboxes parameter
 	"""
 	with open(json_file_path) as json_file:
@@ -106,6 +106,41 @@ def extract_bboxes(bboxes, json_file_path):
 			bbox[2] /= width
 			bbox[3] /= height
 			bboxes.setdefault(annotation['image_id'],[]).append(bbox)
+
+def extract_bboxes_pixels(bboxes, json_file_path):
+	"""
+	Extract bboxes in pixels from a json_file.
+
+	:param json_file_path: file path annotation json file
+	:returns: bboxes in pixels through bboxes parameter
+	"""
+	with open(json_file_path) as json_file:
+		json_data = json.load(json_file)
+		width, height = json_data['info']['clip_dim']
+		for annotation in json_data['annotations']:
+			bbox = annotation['bbox']
+			bboxes.setdefault(annotation['image_id'],[]).append(bbox)
+		return width, height
+
+def map_frame_to_filename(ff_map, json_file_path):
+	"""
+	Extract a map of image file name to frame id for all annotations 
+	from a json_file.
+
+	:param json_file_path: file path annotation json file
+	:returns: dictionary with (file name, frame id) as key value pairs
+	"""
+	with open(json_file_path) as json_file:
+		json_data = json.load(json_file)
+		diff = int(json_data['images'][0]['id'].split('_')[0])
+		for annot in json_data['annotations']:
+			fn = str(int(annot['image_id'].split('_')[0])-diff) + ".jpg"
+			ff_map[fn] = annot['image_id']
+
+def extract_fps(json_file_path):
+	with open(json_file_path) as json_file:
+		json_data = json.load(json_file)
+		return json_data['info']['fps']
 
 def double_average_IOU(json_file_path1, json_file_path2):
 	"""
