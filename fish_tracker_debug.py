@@ -52,8 +52,8 @@ def main(argv):
 	l_count, r_count, na_count = 0, 0, 0
 	for j in range(len(frames)):
 		i += 1
-		if i < 180:
-			continue
+		# if i < 180:
+		# 	continue
 
 		f = frames[i]
 		frame = cv2.imread(PATH_TO_FRAMES + '/' + f)    # Path to the specific frame
@@ -106,8 +106,8 @@ def main(argv):
 	print("Left: "+str(l_count)+" Right: "+str(r_count)+" NA: "+str(na_count))
 
 	# Save frames to video
-	clip_name = PATH_TO_FRAMES.split("/")[-1]
-	out = cv2.VideoWriter('./test_clips/'+clip_name+'.mp4', cv2.VideoWriter_fourcc(*'MP4V'), extract_fps(PATH_TO_ANNOTATIONS), (width, height))
+	clip_name = PATH_TO_FRAMES.split("/")[-2]
+	out = cv2.VideoWriter('/Users/Angelina/Documents/testing_kenai_gt/'+clip_name+'.mp4', cv2.VideoWriter_fourcc(*'MP4V'), extract_fps(PATH_TO_ANNOTATIONS), (width, height))
 	for img in img_array:
 		out.write(img)
 	out.release()

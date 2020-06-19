@@ -17,6 +17,7 @@ class CentroidTracker():
 		self.nextObjectID = 0
 		self.objects = OrderedDict()
 		self.disappeared = OrderedDict()
+		self.numFrames = OrderedDict()
 
 		# store the number of maximum consecutive frames a given
 		# object is allowed to be marked as "disappeared" until we
@@ -33,14 +34,18 @@ class CentroidTracker():
 		# counts the number of "left" stream and "right" stream fish:
 		self.counts = {"left": 0, "right": 0, "NA": 0}
 
+		# # counts the number of frames the track has
+		# self.numFrames = 0
+
 	def getCounts(self):
 		return self.counts
 
 	def register(self, centroid):
 		# when registering an object we use the next available object
 		# ID to store the centroid
-		print("START:")
-		print(centroid)
+		# print("START:")
+		# print(centroid)
+		# print("id:", self.nextObjectID)
 		if centroid[0] < self.width / 2:
 			self.track['enter'] = 'L'
 		else:
@@ -48,28 +53,40 @@ class CentroidTracker():
 
 		self.objects[self.nextObjectID] = centroid
 		self.disappeared[self.nextObjectID] = 0
+		self.numFrames[self.nextObjectID] = 1
 		self.nextObjectID += 1
 
 	def deregister(self, objectID):
 		# to deregister an object ID we delete the object ID from
 		# both of our respective dictionaries
-		print("END:")
-		print(self.objects[objectID])
-		if self.objects[objectID][0] < self.width / 2:
-			self.track['exit'] = 'L'
+		# print("END:")
+		# print(self.objects[objectID])
+		# print(self.numFrames[objectID])
+		
+		# Setting some minimum number of frames required to be counted as a track
+		if self.numFrames[objectID] > 5:
+			if self.objects[objectID][0] < self.width / 2:
+				self.track['exit'] = 'L'
+			else:
+				self.track['exit'] = 'R'
+			if self.track['enter'] == 'L' and self.track['exit'] == 'R':
+				self.counts['right'] += 1
+			elif self.track['enter'] == 'R' and self.track['exit'] == 'L':
+				self.counts['left'] += 1
+			else:
+				if self.numFrames[objectID] > 25:
+					self.counts['NA'] += 1
+			print(objectID)
+			print(self.track)
+			print(self.counts)
+			print()
+
 		else:
-			self.track['exit'] = 'R'
-		if self.track['enter'] == 'L' and self.track['exit'] == 'R':
-			self.counts['right'] += 1
-		elif self.track['enter'] == 'R' and self.track['exit'] == 'L':
-			self.counts['left'] += 1
-		else:
-			self.counts['NA'] += 1
-		print(self.track)
-		print(self.counts)
+			print()
 
 		del self.objects[objectID]
 		del self.disappeared[objectID]
+		del self.numFrames[objectID]
 
 	def update(self, rects):
 		# check to see if the list of input bounding box rectangles
@@ -106,7 +123,7 @@ class CentroidTracker():
 			for i in range(0, len(inputCentroids)):
 				self.register(inputCentroids[i])
 
-		# otherwise, are are currently tracking objects so we need to
+		# otherwise, we are currently tracking objects so we need to
 		# try to match the input centroids to existing object
 		# centroids
 		else:
@@ -123,7 +140,7 @@ class CentroidTracker():
 			# in order to perform this matching we must (1) find the
 			# smallest value in each row and then (2) sort the row
 			# indexes based on their minimum values so that the row
-			# with the smallest value as at the *front* of the index
+			# with the smallest value is at the *front* of the index
 			# list
 			rows = D.min(axis=1).argsort()
 
@@ -147,13 +164,20 @@ class CentroidTracker():
 				if row in usedRows or col in usedCols:
 					continue
 
+				# if the distance between the object centroid and its
+				# new centroid is greater than 200 pixels, the new
+				# bbox is probably not of the same track. Ignore it.
+				if D[row][col] > 200:
+					continue
+				
 				# otherwise, grab the object ID for the current row,
-				# set its new centroid, and reset the disappeared
-				# counter
+				# set its new centroid, increase the number of tracks,
+				# and reset the disappeared counter.
 				objectID = objectIDs[row]
 				self.objects[objectID] = inputCentroids[col]
-				print("centroid:")
-				print(self.objects[objectID])
+				self.numFrames[objectID] += 1
+				# print("centroid:")
+				# print(self.objects[objectID])
 				self.disappeared[objectID] = 0
 
 				# indicate that we have examined each of the row and
