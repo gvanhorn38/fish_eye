@@ -1,52 +1,89 @@
-import re
-import json
-import pyARIS
-import os
-from datetime import datetime
-
 from absl import app
 from absl import flags
+from datetime import datetime
+import json
+import numpy as np
+import os
+from pathlib import Path
+import re
+from shutil import make_archive
+
+import pyARIS
 
 flags.DEFINE_string(
-	'aris_dir', '/Volumes/Keith_Denton_04/Elwha 2018/OM/', 'Path to source ARIS files.'
+	'aris_dir', None, 'Path to source ARIS files.'
 )
 flags.DEFINE_string(
-    'clip_dir', '/Volumes/Trout_Data/Elwha/clips/', 'Directory to output generated clips.'
+    'clip_dir', None, 'Directory to output generated clips.'
 )
 flags.DEFINE_string(
-    'json_dir', '/Volumes/Trout_Data/Elwha/json_files/', 'Path to output parsed data.'
-)
-flags.DEFINE_string(
-	'river_name', 'elwha', 'River name and location (eg. kenai or elwha)'
+	'river_name', 'elwha', 'River name and location (eg. kenai or elwha).'
 )
 flags.DEFINE_string(
 	'river_location', 'wa', 'State that the river is located in (eg. wa).'
 )
+flags.DEFINE_string(
+	'zip_location', None, 'Location to zip frames directories to for annotating.\n'
+	                    + 'Will zip warped-to-scale images regardless of save_raw.'
+)
+flags.DEFINE_bool(
+	'no_infotxt', False, 'Omit info.txt in clip creation.'
+)
+flags.DEFINE_bool(
+	'save_raw', False, 'Additionally save un-warped images.'
+)
+flags.DEFINE_bool(
+	'verbose', False, 'Adds extra debugging information.'
+)
+flags.DEFINE_bool(
+	'save_remap_info', False, 'Stores mapping between non-warped and warped image.'
+)
+flags.mark_flag_as_required('aris_dir')
+flags.mark_flag_as_required('clip_dir')
 FLAGS = flags.FLAGS
 
 # Parser for elwha and kenai formatted annotations text file
-def parse_data(annot_fp):
-	file = open(annot_fp, 'r')
-	contents = file.read()
+def parse_data(annot_fp, validate=False):
+	with open(annot_fp) as file:
+		contents = file.read()
 
-	# parser:
-	RE1 = re.compile(r'Total Fish\s+=[ ]+([0-9]+)\nUpstream\s+=[ ]+([0-9]+)\nDownstream\s+=[ ]+([0-9]+)\n\?\?\s+=[ ]+([0-9]+)'
-					+ r'\n+Total Frames\s+=[ ]+([0-9]+)\nExpected Frames\s+=[ ]+([0-9]+)\nTotal Time\s+=[ ]+([0-9]{2}:[0-9]{2}:[0-9]{2})\nExpected Time\s+=[ ]+([0-9]{2}:[0-9]{2}:[0-9]{2})'
-					+ r'\n+Upstream Motion\s+=[ ]+(.*)'
-					+ r'\n+Count\s+File\s+Name:[ ]+(?:.*)'
-					+ r'\n+Editor ID\s+=[ ]+(\w*)\nIntensity\s+=[ ]+(.*)\nThreshold\s+=[ ]+(.*)\nWindow Start\s+=[ ]+(.*)\nWindow End\s+=[ ]+(.*)(?:\nWater Temperature\s+=[ ]+(.*))*'
-					+ r'\n+(?:.*)\n+(?:.*)\n\-+'
-					+ r'\n([\w\s\S]*?)\n+')
+	RE1 = re.compile( r'Total Fish\s+=[ ]+([0-9]+)\n'
+					+ r'Upstream\s+=[ ]+([0-9]+)\n'
+					+ r'Downstream\s+=[ ]+([0-9]+)\n'
+					+ r'\?\?\s+=[ ]+([0-9]+)\n'
+					+ r'\n'
+					+ r'Total Frames\s+=[ ]+([0-9]+)\n'
+					+ r'Expected Frames\s+=[ ]+([0-9]+)\n'
+					+ r'Total Time\s+=[ ]+([0-9]{2}:[0-9]{2}:[0-9]{2})\n'
+					+ r'Expected Time\s+=[ ]+([0-9]{2}:[0-9]{2}:[0-9]{2})\n'
+					+ r'\n'
+					+ r'Upstream Motion\s+=[ ]+(.*)\n'
+					+ r'\n'
+					+ r'Count\s+File\s+Name:[ ]+(?:.*)\n'
+					+ r'Editor ID\s+=[ ]+(\w*)\n'
+					+ r'Intensity\s+=[ ]+(.*)\n'
+					+ r'Threshold\s+=[ ]+(.*)\n'
+					+ r'Window Start\s+=[ ]+(.*)\n'
+					+ r'Window End\s+=[ ]+(.*)\n'
+					+ r'Water Temperature\s+=[ ]+(.*)degC\n'
+					+ r'\n'
+					+ r'\n'
+					+ r'(?:.*)\n+(?:.*)\n\-+'
+					+ r'\n([\w\s\S]*?)\n\n+')
 
 	matched = RE1.search(contents)
 	
 	if not matched:
-		print('ERROR: No matches found!')
-		return 0
+		raise RuntimeWarning(f'Format of {annot_fp} was not expected.')
 
 	data = matched.groups()
-	if data[15] == '':
-		return 1
+
+	if data[15].strip() == '':
+		raise RuntimeWarning(f'File {annot_fp} has no annotations.')
+
+	if validate:
+		return
+
 	# Store into nested dictionary:
 	info = {}
 	info['tot_fish'] = int(data[0])
@@ -94,63 +131,53 @@ def parse_data(annot_fp):
 	return json_data
 
 
-# Stores parsed data into JSON
-def store_data(annot_fp, json_fp):
-	json_data = parse_data(annot_fp)
-	# Store as JSON file:
-	print('JSON file stored:', json_fp)
-	json.dump(json_data, open(json_fp, 'w'))
-
-
-# Pulls all clips (fish sightings) from each annotation textfile
-def get_clips(data, frame_rate, max_frames):
-	padding = int(frame_rate * 10)    # padding of 10s
+# Pulls all fish sighting frame intervals from each annotation text file
+def get_intervals(data, frame_rate, max_frames):
+	padding = int(frame_rate * 10)    # Pad frame range with 10
 	clips = []
 
 	annotations = data['annotations']
 	for _, value in annotations.items():
 		if len(clips) == 0:
 			clip = {}
-			clip['interval'] = (max(0, int(value['frame_num'] - frame_rate*30)), min(max_frames-1, int(value['frame_num'] + frame_rate*30)))
+			clip['interval'] = (max(0, int(value['frame_num'] - frame_rate*30)), min(max_frames - 1, int(value['frame_num'] + frame_rate*30)))
 			clip['num_fish'] = 1
-			clip['time'] = value['time'][:2] + '_' + value['time'][3:5] + '_' + value['time'][6:8]
+			clip['time'] = f'''{value['time'][:2]}_{value['time'][3:5]}_{value['time'][6:8]}'''
 			clips.append(clip)
 		else:
-			if clips[-1]['interval'][0]+padding <= value['frame_num'] <= clips[-1]['interval'][1]-padding:
+			if clips[-1]['interval'][0] + padding <= value['frame_num'] <= clips[-1]['interval'][1] - padding:
 				clips[-1]['num_fish'] += 1
 			else:
 				clip = {}
-				clip['interval'] = (max(0,int(value['frame_num'] - frame_rate*30)), min(max_frames-1, int(value['frame_num'] + frame_rate*30)))
+				clip['interval'] = (max(0, int(value['frame_num'] - frame_rate*30)), min(max_frames - 1, int(value['frame_num'] + frame_rate*30)))
 				clip['num_fish'] = 1
-				clip['time'] = value['time'][:2] + '_' + value['time'][3:5] + '_' + value['time'][6:8]
+				clip['time'] = f'''{value['time'][:2]}_{value['time'][3:5]}_{value['time'][6:8]}'''
 				clips.append(clip)
 	return clips
 
-# Generates a clip (video, folder of images, numpy file, info textfile)
-# Note: our current code just generates the first clip of every textfile, if there are multiple clips (since we only want 100 clips).
-def gen_clip(clip_dir, json_dir, river_name, river_location, annot_file):
-	base = os.path.basename(annot_file)
-	RE = re.compile(r'FCe_(.*?)_ID_NIP.txt')
-	name = RE.match(base).groups()[0]
 
-	# Load in the first frame
-	filename = os.path.dirname(annot_file) + '/' + name + '.aris'
+# Generates clips for each sighting interval in given annotation text file
+def gen_clips(river_name, river_location, annot_file):
+	base = os.path.basename(annot_file)
+	RE = re.compile(r'FCe_(.*?)_ID_(.*?).txt')
+	name = RE.match(base).groups()[0] # Groups are name and annotator id
+
+	filename = os.path.join(os.path.dirname(annot_file), f'{name}.aris')
+	if not os.path.exists(filename):
+		raise RuntimeWarning(f'{filename} is missing.')
+
 	ARISdata, frame = pyARIS.DataImport(filename)
 	frame_rate = frame.framerate 	# Instantaneous frame rate between frame N and frame N-1 from frame header
 	max_frames = ARISdata.FrameCount
 
-	# Get annotations
-	json_path = json_dir + name + '.json'
-	if not os.path.isfile(json_path):
-		store_data(annot_file, json_path)  # 1st param is annotation file path
-	data = json.load(open(json_path, 'r'))
-	clips = get_clips(data, frame_rate, max_frames)
+	data = parse_data(annot_file)
+	clips = get_intervals(data, frame_rate, max_frames)
 
 	# Load in the beam width information
 	beam_width_data = pyARIS.load_beam_width_data(frame, beam_width_dir='beam_widths')
 
 	# What is the meter resolution of the smallest sample?
-	min_pixel_size = pyARIS.get_minimum_pixel_meter_size(frame, beam_width_data)	# change to something larger; dont need min to be too small
+	min_pixel_size = pyARIS.get_minimum_pixel_meter_size(frame, beam_width_data)
 
 	# What is the meter resolution of the sample length?
 	sample_length = frame.sampleperiod * 0.000001 * frame.soundspeed / 2
@@ -172,72 +199,77 @@ def gen_clip(clip_dir, json_dir, river_name, river_location, annot_file):
 	    frame, beam_width_data
 	)
 
-	# Make a clip of the first annotation
-	date = data['annotations']['1']['date']
-	clip_name = river_name + '_' + river_location + '_' + date[:4] + '_' + date[5:7] + '_' + date[8:] + '_' + clips[0]['time'] + '_' + str(clips[0]['num_fish'])
-	print('clip_name:', clip_name)
-	print('range:', clips[0]['interval'][0], clips[0]['interval'][1])
+	date = next(iter(data['annotations'].values()))['date'] # `next` is required because some annotations are badly formatted
 
+	print(annot_file)
+	for i, clip in enumerate(clips):
+		clip_name = f'''{river_name}_{river_location}_{date[:4]}_{date[5:7]}_{date[8:]}_{clip['time']}_{clip['num_fish']}'''
+		print(f'''\t{i+1}/{len(clips)} : {clip_name}''')
+		print(f'''\trange: {clip['interval'][0]} {clip['interval'][1]}''')
+		if clip_name != 'kenai_wa_2018_05_26_22_25_30_1':
+			continue
 
-	# Create directory if one doesn't exist
-	if not os.path.exists(clip_dir+clip_name):
-		os.makedirs(clip_dir+clip_name)
+		if not os.path.exists(os.path.join(FLAGS.clip_dir, clip_name)):
+			os.makedirs(os.path.join(FLAGS.clip_dir, clip_name))
 
-	with open(clip_dir+clip_name+'/info.txt', 'w') as file:
-		file.write(clip_dir+clip_name+'\n')
-		file.write(filename + '\n')
-		file.write(river_name + '\n')
-		file.write(river_location + '\n')
-		file.write(str(clips[0]['num_fish'])+'\n')
-		file.write(str(min_pixel_size)+'\n')
-		file.write(str(sample_length)+'\n')
-		file.write(str(pixel_meter_size)+'\n')
-		file.write(str(xdim)+' '+str(ydim)+'\n')
-		file.write(str(frame_rate)+'\n')
-		file.write(str(clips[0]['interval'][0])+' '+str(clips[0]['interval'][1])+'\n')
-		file.write(str(datetime.strptime(date+clips[0]['time'], '%Y-%m-%d%H_%M_%S'))+'\n')
+		if not FLAGS.no_infotxt:
+			with open(os.path.join(FLAGS.clip_dir, clip_name, 'info.txt'), 'w') as file:
+				file.write(f'{os.path.join(FLAGS.clip_dir, clip_name)}\n')
+				file.write(f'{filename}\n')
+				file.write(f'{river_name}\n')
+				file.write(f'{river_location}\n')
+				file.write(f'''{clip['num_fish']}\n''')
+				file.write(f'{min_pixel_size}\n')
+				file.write(f'{sample_length}\n')
+				file.write(f'{pixel_meter_size}\n')
+				file.write(f'{xdim} {ydim}\n')
+				file.write(f'{frame_rate}\n')
+				file.write(f'''{clip['interval'][0]} {clip['interval'][1]}\n''')
+				file.write(f'''{datetime.strptime(date+clip['time'], '%Y-%m-%d%H_%M_%S')}\n''')
 
-	# Make a video using some of the frames
-	pyARIS.make_video(
-	    ARISdata,
-	    xdim, ydim, sample_read_rows, sample_read_cols, image_write_rows, image_write_cols,
-	    clip_dir,
-	    clip_name,
-	    fps = frame_rate,
-	    start_frame = clips[0]['interval'][0],
-	    end_frame = clips[0]['interval'][1],
-	    timestamp = True,
-	    fontsize = 25,
-	    ts_pos = (0,frame.samplesperbeam-50)
-	)
+		if FLAGS.save_remap_info:
+			np.savez_compressed(os.path.join(FLAGS.clip_dir, clip_name, 'mapping.npz'), sample_read_rows=sample_read_rows, sample_read_cols=sample_read_cols, image_write_rows=image_write_rows, image_write_cols=image_write_cols)
 
-# Returns a list of 100 filenames of the annotation textfiles
-def get_annot_files(directory):
-	folders = os.listdir(directory)
-	extensions = ('.txt')
-	count = 0
-	files = []
-	for folder in folders:
-		subdir = directory+folder
-		for file in os.listdir(subdir):
-			ext = os.path.splitext(file)[-1].lower()
-			if ext in extensions:
-				data = parse_data(os.path.join(subdir, file))
-				if data not in [0, 1]:
-					count += 1
-					files.append(os.path.join(subdir, file))
-					if count == 100:
-						return files
-	return files
-
+		# Generate frames in range
+		pyARIS.make_video(
+			ARISdata,
+			xdim, ydim, sample_read_rows, sample_read_cols, image_write_rows, image_write_cols,
+			FLAGS.clip_dir,
+			clip_name,
+			fps = frame_rate,
+			start_frame = clip['interval'][0],
+			end_frame = clip['interval'][1],
+			timestamp = True,
+			fontsize = 25,
+			ts_pos = (0,frame.samplesperbeam-50),
+			save_raw = FLAGS.save_raw,
+			no_infotxt = FLAGS.no_infotxt
+		)
+		if FLAGS.zip_location:
+			make_archive(os.path.join(FLAGS.zip_location, clip_name), 'zip', os.path.join(FLAGS.clip_dir, clip_name, 'frames/'))
+			
 
 def main(argv):
 	FLAGS.river_name = FLAGS.river_name.lower()
 	FLAGS.river_location = FLAGS.river_location.lower()
-	files = get_annot_files(FLAGS.aris_dir)
-	for i, file in enumerate(files):
-		print(str(i)+'\n')
-		gen_clip(FLAGS.clip_dir, FLAGS.json_dir, FLAGS.river_name, FLAGS.river_location, file)
+
+	files = []
+	for file in Path(FLAGS.aris_dir).rglob('*.txt'):
+		try:
+			parse_data(file, validate=True)
+			files.append(file)
+
+		except RuntimeWarning as err:
+			if FLAGS.verbose:
+				print(err)
+
+	for file in files:
+		try:
+			gen_clips(FLAGS.river_name, FLAGS.river_location, file)
+		
+		except RuntimeWarning as err:
+			if FLAGS.verbose:
+				print(err)
 
 if __name__ == '__main__':
 	app.run(main)
