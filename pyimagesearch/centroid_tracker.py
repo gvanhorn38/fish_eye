@@ -40,6 +40,32 @@ class CentroidTracker():
 	def getCounts(self):
 		return self.counts
 
+	# This function checks if there are any remaining fish not deregistered.
+	def getRemainingFish(self):
+		leftoverCounts = {"right": 0, "left": 0, "NA": 0}
+		for key, value in self.objects:
+			# If valid fish track
+			if self.numFrames[key] > 5:
+				if self.objects[key][0] < self.width / 2:
+					self.track['exit'] = 'L'
+				else:
+					self.track['exit'] = 'R'
+
+				if self.track['enter'] == 'L' and self.track['exit'] == 'R':
+					leftoverCounts['right'] += 1
+				elif self.track['enter'] == 'R' and self.track['exit'] == 'L':
+					leftoverCounts['left'] += 1
+				else:
+					if self.numFrames[key] > 25:
+						leftoverCounts['NA'] += 1
+
+			del self.object[key]
+			del self.disappeared[key]
+			del self.numFrames[key]
+
+		return leftoverCounts
+
+
 	def register(self, centroid):
 		# when registering an object we use the next available object
 		# ID to store the centroid
