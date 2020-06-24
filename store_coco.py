@@ -29,6 +29,7 @@ def get_json_from_data(xml, framedir):
 	image = plt.imread(os.path.join(framedir, '0.jpg'))
 	height = image.shape[0]
 	width = image.shape[1]
+	print(height, width)
 
 	# Create image entries
 	images = {}
@@ -74,19 +75,19 @@ def get_json_from_data(xml, framedir):
 				points = np.array([int(polygon.findtext('pt/x')), int(polygon.findtext('pt/y')),
 					int(polygon.findall('pt/x')[2].text), int(polygon.findall('pt/y')[1].text)])
 
-				bbox['xmin'].append(int(points[0]))
-				bbox['ymin'].append(int(points[1]))
-				bbox['xmax'].append(int(points[2]))
-				bbox['ymax'].append(int(points[3]))
+				bbox['xmin'].append(int(points[0])/image['width'])
+				bbox['ymin'].append(int(points[1])/image['height'])
+				bbox['xmax'].append(int(points[2])/image['width'])
+				bbox['ymax'].append(int(points[3])/image['height'])
 				
 				# Interpolate if there are stationary boxes
 				if stat_interp:
 					bbox_interp = np.rint(last_drawn + np.dot(1 + np.array(range(len(stat_interp)))[:,np.newaxis], (points - last_drawn)[np.newaxis,:])/(len(stat_interp) + 1))
 					for object_bbox, bbox in zip(stat_interp, bbox_interp):
-						object_bbox['xmin'].append(bbox[0])
-						object_bbox['ymin'].append(bbox[1])
-						object_bbox['xmax'].append(bbox[2])
-						object_bbox['ymax'].append(bbox[3])
+						object_bbox['xmin'].append(bbox[0]/image['width'])
+						object_bbox['ymin'].append(bbox[1]/image['height'])
+						object_bbox['xmax'].append(bbox[2]/image['width'])
+						object_bbox['ymax'].append(bbox[3]/image['height'])
 					stat_interp = []
 				last_drawn = points
 					
@@ -111,6 +112,7 @@ def main(argv):
 	else:
 		for file in os.listdir(FLAGS.clip_dir):
 			data = get_json_from_data(os.path.join(FLAGS.clip_dir, file, 'output.xml'), os.path.join(FLAGS.clip_dir, file, FLAGS.framedir_name))
+			# print(data)
 			if combine:
 				total += data
 			else:

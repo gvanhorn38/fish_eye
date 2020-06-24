@@ -25,26 +25,26 @@ flags.mark_flag_as_required('frame_location')
 flags.mark_flag_as_required('annotation_paths')
 FLAGS = flags.FLAGS
 
-# Annotation colors
-colors = ('r', 'b', 'g', 'c', 'm', 'y', 'k', 'w')
-
 def main(argv):
 	assert os.path.exists(FLAGS.frame_location), f'{FLAGS.frame_location} does not exist'
 
-	max_num = 0
-
+	max_num = 1
 	total_annotations = {}
 	for annotation_path in FLAGS.annotation_paths:
 		with open(annotation_path) as json_file:
 			for image in json.load(json_file):
 				if image['filename'] in total_annotations:
 					total_bbox = total_annotations[image['filename']]
-					total_bbox['xmin'] += image['object']['bbox']['xmin']
-					total_bbox['xmax'] += image['object']['bbox']['xmax']
-					total_bbox['ymin'] += image['object']['bbox']['ymin']
-					total_bbox['ymax'] += image['object']['bbox']['ymax']
+					total_bbox['xmin'] += [n*image['width'] for n in image['object']['bbox']['xmin']]
+					total_bbox['xmax'] += [n*image['width'] for n in image['object']['bbox']['xmax']]
+					total_bbox['ymin'] += [n*image['height'] for n in image['object']['bbox']['ymin']]
+					total_bbox['ymax'] += [n*image['height'] for n in image['object']['bbox']['ymax']]
 					max_num = max(max_num, len(total_bbox['xmin']))
 				else:
+					image['object']['bbox']['xmin'] = [n*image['width'] for n in image['object']['bbox']['xmin']]
+					image['object']['bbox']['xmax'] = [n*image['width'] for n in image['object']['bbox']['xmax']]
+					image['object']['bbox']['ymin'] = [n*image['height'] for n in image['object']['bbox']['ymin']]
+					image['object']['bbox']['ymax'] = [n*image['height'] for n in image['object']['bbox']['ymax']]
 					total_annotations[image['filename']] = image['object']['bbox']
 
 	index = 0
