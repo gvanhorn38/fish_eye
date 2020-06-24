@@ -941,7 +941,7 @@ def compute_mapping_from_sample_to_image(pixel_meter_size, xdim, ydim, x_meter_s
 
 def make_video(data,
     xdim, ydim, sample_read_rows, sample_read_cols, image_write_rows, image_write_cols,
-    directory, filename, fps = 24.0, start_frame = 1, end_frame = None, timestamp = False, fontsize = 30, ts_pos = (0,0)):
+    directory, filename, fps = 24.0, start_frame = 1, end_frame = None, timestamp = False, fontsize = 30, ts_pos = (0,0), save_raw = False, no_infotxt = False):
     """Output video using the ffmpeg pipeline. The current implementation
     outputs compresses png files and outputs a mp4.
 
@@ -972,28 +972,28 @@ def make_video(data,
     """
 
     #Command to send via the command prompt which specifies the pipe parameters
-    command = ['ffmpeg',
-           '-y', # (optional) overwrite output file if it exists
-           '-f', 'image2pipe',
-           '-vcodec', 'mjpeg', #'mjpeg',
-           '-r', '1',
-           '-r', str(fps), # frames per second
-           '-i', '-', # The input comes from a pipe
-           '-an', # Tells FFMPEG not to expect any audio
-           '-vcodec', 'mpeg4',
-           '-b:v', '5000k',
-           directory + filename + "/"+filename+".mp4",
-           '-hide_banner',
-           '-loglevel', 'panic']
+    # command = ['ffmpeg',
+    #        '-y', # (optional) overwrite output file if it exists
+    #        '-f', 'image2pipe',
+    #        '-vcodec', 'mjpeg', #'mjpeg',
+    #        '-r', '1',
+    #        '-r', str(fps), # frames per second
+    #        '-i', '-', # The input comes from a pipe
+    #        '-an', # Tells FFMPEG not to expect any audio
+    #        '-vcodec', 'mpeg4',
+    #        '-b:v', '5000k',
+    #        directory + filename + "/"+filename+".mp4",
+    #        '-hide_banner',
+    #        '-loglevel', 'panic']
 
     # Create directory if one doesn't exist
-    if not os.path.exists(directory+filename+'/frames/'):
-        os.makedirs(directory+filename+'/frames/')
-    if not os.path.exists(directory+filename+'/frames-raw/'):
-        os.makedirs(directory+filename+'/frames-raw/')
+    if not os.path.exists(os.path.join(directory, filename, 'frames/')):
+        os.makedirs(os.path.join(directory, filename, 'frames/'))
+    if save_raw and not os.path.exists(os.path.join(directory, filename, 'frames-raw/')):
+        os.makedirs(os.path.join(directory, filename, 'frames-raw/'))
 
     # Open the pipe
-    pipe = sp.Popen(command, stdin=sp.PIPE)
+    # pipe = sp.Popen(command, stdin=sp.PIPE)
 
     if end_frame == None:
         end_frame = data.FrameCount
@@ -1005,15 +1005,16 @@ def make_video(data,
     font = ImageFont.truetype("./arial.ttf", fontsize)
     j = 0
     
-    all_frame_data = []
-    file = open(directory+filename+"/info.txt", 'a')
+    # all_frame_data = []
+    if not no_infotxt:
+        file = open(directory+filename+"/info.txt", 'a')
 
     for i in tqdm.tqdm(range(start_frame, end_frame)):
         frame = FrameRead(data, i)
         frame_image = np.zeros([ydim, xdim], dtype=np.uint8)
         frame_image[image_write_rows, image_write_cols] = frame.frame_data[sample_read_rows, sample_read_cols]
 
-        all_frame_data.append(frame.frame_data)
+        # all_frame_data.append(frame.frame_data)
 
         im = Image.fromarray(cm(frame_image, bytes=True))
 
@@ -1024,22 +1025,26 @@ def make_video(data,
             text = "%s\n%d" % (ts, i)
             draw = ImageDraw.Draw(im)
             draw.text(ts_pos,text,font=font, fill = 'white')
-        try:
-            rgb_im = im.convert('RGB')
-            rgb_im.save(directory+filename+'/frames/'+str(j)+'.jpg'  , "JPEG")
-            raw_im.save(directory+filename+'/frames-raw/'+str(j)+'.jpg'  , "JPEG")
-            rgb_im.save(pipe.stdin, 'JPEG')
+        # try:
+        rgb_im = im.convert('RGB')
+        rgb_im.save(os.path.join(directory, filename, 'frames/', f'{j}.jpg'), "JPEG")
+        if save_raw:
+            raw_im.save(os.path.join(directory, filename, 'frames-raw/', f'{j}.jpg'), "JPEG")
+        # rgb_im.save(pipe.stdin, 'JPEG')
+        if not no_infotxt:
             file.write(str(i)+'_'+str(frame.sonartimestamp)+'_'+filename+"\n")
-        except:
-            pipe = sp.Popen(command, stdin=sp.PIPE)
-            rgb_im = im.convert('RGB')
-            rgb_im.save(directory+filename+'/frames/'+str(j)+'.jpg'  , "JPEG")
-            raw_im.save(directory+filename+'/frames-raw/'+str(j)+'.jpg'  , "JPEG")
-            rgb_im.save(pipe.stdin, 'JPEG')
-            file.write(str(i)+'_'+str(frame.sonartimestamp)+'_'+filename+"\n")
+        # except:
+        #     # pipe = sp.Popen(command, stdin=sp.PIPE)
+        #     rgb_im = im.convert('RGB')
+        #     rgb_im.save(directory+filename+'/frames/'+str(j)+'.jpg'  , "JPEG")
+        #     if save_raw:
+        #         raw_im.save(directory+filename+'/frames-raw/'+str(j)+'.jpg'  , "JPEG")
+        #     # rgb_im.save(pipe.stdin, 'JPEG')
+        #     if not no_infotxt:
+        #         file.write(str(i)+'_'+str(frame.sonartimestamp)+'_'+filename+"\n")
         j += 1
     
-    all_frame_data = np.array(all_frame_data)
-    np.savez(directory+filename + '/' + filename, frame_data=all_frame_data, sample_read_rows=sample_read_rows, sample_read_cols=sample_read_cols, image_write_rows=image_write_rows, image_write_cols=image_write_cols)  # save numpy file
+    # all_frame_data = np.array(all_frame_data)
+    # np.savez(directory+filename + '/' + filename, frame_data=all_frame_data, sample_read_rows=sample_read_rows, sample_read_cols=sample_read_cols, image_write_rows=image_write_rows, image_write_cols=image_write_cols)  # save numpy file
 
-    pipe.stdin.close()
+    # pipe.stdin.close()

@@ -1,74 +1,49 @@
-from utils import extract_bboxes_pixels, map_frame_to_filename, extract_fps
-from pyimagesearch.centroid_tracker import CentroidTracker
-import argparse
-import cv2
+from absl import app
+from absl import flags
+import json
 import os
-import glob
-import re
-from PIL import Image
-from absl import app, flags
+from pathlib import Path
+
+from pyimagesearch.centroid_tracker import CentroidTracker
 
 flags.DEFINE_string(
-	'path_to_frames', None, 'Path of the folder of frames')
-flags.DEFINE_string(
-	'path_to_annotations', None, 'Path to coco annotations json file')
+    'path_to_json', None, 'Path to json or directory of jsons.'
+)
+flags.mark_flag_as_required('path_to_json')
 FLAGS = flags.FLAGS
 
-
-# Function to help sort frames in order by creation date
-def numericalSort(value):
-	numbers = re.compile(r'(\d+)')
-	parts = numbers.split(value)
-	parts[1::2] = map(int, parts[1::2])
-	return parts
-
 def main(argv):
-	flags.mark_flag_as_required('path_to_frames')
-	flags.mark_flag_as_required('path_to_annotations')
+	assert os.path.exists(FLAGS.path_to_json), f'{FLAGS.path_to_json_dir} does not exist.'
 
-	PATH_TO_FRAMES = FLAGS.path_to_frames
-	PATH_TO_ANNOTATIONS = FLAGS.path_to_annotations
+	# Is a single json
+	if os.path.isfile(FLAGS.path_to_json):
+		jsons = [FLAGS.path_to_json]
+	# Is a directory containing jsons
+	else:
+		jsons = Path(FLAGS.path_to_json).glob('*.json')
 
-	# Obtain the list of bounding boxes and a map from bbox id to image filename
-	bboxes = {}
-	width, height = extract_bboxes_pixels(bboxes, PATH_TO_ANNOTATIONS)
-	ff_map = {}
-	map_frame_to_filename(ff_map, PATH_TO_ANNOTATIONS)  # second argument is path to json file (coco format)
+	for json_file in jsons:
+		with open(json_file) as file:
+			frames = json.load(file)
 
-	# fetch frames from clip
-	frames = os.listdir(PATH_TO_FRAMES)		# Path to directory containing clip frames
-	frames = sorted(frames, key=numericalSort)
-	i = -1
+		ct = CentroidTracker(1.0, 1.0)
 
-	# Initialize our centroid tracker and frame dimensions
-	ct = CentroidTracker(width, height)
+		l_count, r_count, na_count = 0, 0, 0
+		for i in range(len(frames)):
+			rects = []
+			for j in range(frames[i]['object']['count']):
+				bbox = frames[i]['object']['bbox']
+				rects.append([bbox['xmin'][j], bbox['ymin'][j], bbox['xmax'][j]-bbox['xmin'][j], bbox['ymax'][j]-bbox['ymin'][j]])
 
-	# array to store all images
-	img_array = []
+			# Update centroid tracker using the set of bbox coordinates
+			ct.update(rects)
 
-	# Loop over each frame
-	# while True:
-	l_count, r_count, na_count = 0, 0, 0
-	for j in range(len(frames)):
-		i += 1
-		f = frames[i]
-		rects = []
-		if f in ff_map:
-			rects = bboxes[ff_map[f]]
+			# Obtain counts in frame:
+			counts = ct.getCounts()
 
-		# Update centroid tracker using the set of bbox coordinates
-		objects = ct.update(rects)
+			l_count, r_count, na_count = counts['left'], counts['right'], counts['NA']
 
-		# obtain counts in frame:
-		counts = ct.getCounts()
-
-		# update overall counts:
-		l_count = counts['left']
-		r_count = counts['right']
-		na_count = counts['NA']
-
-	# Output total counts:
-	print("Left: "+str(l_count)+" Right: "+str(r_count)+" NA: "+str(na_count))
+		print(f'{json_file}: Left: {l_count}, Right: {r_count}, N/A: {na_count}')
 
 if __name__ == '__main__':
-  app.run(main)
+	app.run(main)
