@@ -29,7 +29,6 @@ def get_json_from_data(xml, framedir):
 	image = plt.imread(os.path.join(framedir, '0.jpg'))
 	height = image.shape[0]
 	width = image.shape[1]
-	print(height, width)
 
 	# Create image entries
 	images = {}
@@ -112,7 +111,6 @@ def main(argv):
 	else:
 		for file in os.listdir(FLAGS.clip_dir):
 			data = get_json_from_data(os.path.join(FLAGS.clip_dir, file, 'output.xml'), os.path.join(FLAGS.clip_dir, file, FLAGS.framedir_name))
-			# print(data)
 			if combine:
 				total += data
 			else:
