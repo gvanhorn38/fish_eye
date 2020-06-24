@@ -6,9 +6,6 @@ import matplotlib.patches as patches
 import numpy as np
 import os
 
-flags.DEFINE_string(
-	'frame_location', None, 'Directory containing frames 0.jpg-n.jpg.'
-)
 flags.DEFINE_list(
     'annotation_paths', None, 'List of comma-separated json files of annotations over given frames surrounded by quotes.'
 )
@@ -21,14 +18,11 @@ flags.DEFINE_bool(
 flags.DEFINE_bool(
 	'no_display', False, 'Don\'t display images.'
 )
-flags.mark_flag_as_required('frame_location')
 flags.mark_flag_as_required('annotation_paths')
 FLAGS = flags.FLAGS
 
 def main(argv):
-	assert os.path.exists(FLAGS.frame_location), f'{FLAGS.frame_location} does not exist'
-
-	max_num = 1
+	max_num = 0
 	total_annotations = {}
 	for annotation_path in FLAGS.annotation_paths:
 		with open(annotation_path) as json_file:
@@ -46,6 +40,7 @@ def main(argv):
 					image['object']['bbox']['ymin'] = [n*image['height'] for n in image['object']['bbox']['ymin']]
 					image['object']['bbox']['ymax'] = [n*image['height'] for n in image['object']['bbox']['ymax']]
 					total_annotations[image['filename']] = image['object']['bbox']
+					max_num = max(max_num, len(image['object']['bbox']['xmin']))
 
 	index = 0
 	file_names = list(total_annotations.keys())

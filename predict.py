@@ -1,92 +1,159 @@
-import json
-import numpy as np
-import os
-import tensorflow as tf
-
-from PIL import Image
-
 from absl import app
 from absl import flags
+import json
+import os
+from pathlib import Path
+import tensorflow as tf
 
 flags.DEFINE_string(
-    'path_to_frozen_graph', None, 'Path to frozen_inference_graph.pb.')
+    'path_to_frozen_graph', None, 'Path to frozen_inference_graph.pb.'
+)
 flags.DEFINE_string(
-    'path_to_image_dir', None, 'Path to image directory.')
+    'path_to_image_dir', None, 
+    '''
+    Path to image directory if no json provided.
+    Can be either the directory directly containing images or directory with contents:
+    $path_to_image_dir/
+    └── */
+        └── $framedir_name/
+            └── *.jpg
+    '''
+)
+flags.DEFINE_string(
+    'path_to_json', None, 'Path to json or directory of jsons, if no image directory provided.'
+)
+flags.DEFINE_string(
+    'path_to_output_dir', None, 'Directory to output json.'
+)
+flags.DEFINE_string(
+    'framedir_name', '', 'Name of subfolder containing images or \'\' otherwise.'
+)
+flags.DEFINE_string(
+    'output_json_name', None, 'Optional output name for a batch of files. \
+                        Only useful if there is a single json or folder of images.'
+)
+flags.DEFINE_bool(
+	'verbose', False, 'Adds extra debugging information.'
+)
+# TODO
+# flags.DEFINE_integer(
+#     'batch_size', 20, 'Number of images to be processed at once.'
+# )
+flags.mark_flag_as_required('path_to_frozen_graph')
 FLAGS = flags.FLAGS
 
-def load_image_into_numpy_array(image):
-  (im_width, im_height) = image.size
-  return np.array(image.getdata()).reshape(
-      (im_height, im_width, 3)).astype(np.uint8)
+IMG_HEIGHT = 600
+IMG_WIDTH = 300
 
 def main(argv):
-  flags.mark_flag_as_required('path_to_frozen_graph')
-  flags.mark_flag_as_required('path_to_image_dir')
+    assert bool(FLAGS.path_to_image_dir) ^ bool(FLAGS.path_to_json), \
+                        'Must define either path_to_image_dir or path_to_json.'
 
-  # Path to frozen detection graph. This is the actual model that is used for the object detection.
-  PATH_TO_FROZEN_GRAPH = FLAGS.path_to_frozen_graph
+    assert bool(FLAGS.path_to_output_dir) ^ bool(FLAGS.output_json_name), \
+                        'Must define either path_to_output_dir or output_json_name.'
+    
+    clips = {}
+    if FLAGS.path_to_json is not None:
+        assert os.path.exists(FLAGS.path_to_json), 'path_to_json_dir does not exist.'
 
-  detection_graph = tf.Graph()
-  with detection_graph.as_default():
-    od_graph_def = tf.GraphDef()
-    with tf.gfile.GFile(PATH_TO_FROZEN_GRAPH, 'rb') as fid:
-      serialized_graph = fid.read()
-      od_graph_def.ParseFromString(serialized_graph)
-      tf.import_graph_def(od_graph_def, name='')
+        # Is a single json
+        if os.path.isfile(FLAGS.path_to_json):
+            jsons = Path(FLAGS.path_to_json)
+        # Is a directory containing jsons
+        else:
+            jsons = Path(FLAGS.path_to_json).glob('*.json')
+        
+        for json_file in jsons:
+            with open(json_file) as file:
+                clips[json_file.name] = [annotation['filename'] for annotation in json.load(file)]
 
-  # If you want to test the code with your images, just add path to the images to the TEST_IMAGE_PATHS.
-  PATH_TO_TEST_IMAGES_DIR = FLAGS.path_to_image_dir
+    if FLAGS.path_to_image_dir is not None:
+        assert os.path.exists(FLAGS.path_to_image_dir), 'path_to_image_dir does not exist.'
 
-  TEST_IMAGE_PATHS = sorted(os.listdir(PATH_TO_TEST_IMAGES_DIR), key=lambda x: int(os.path.splitext(x)[0]))
+        # Is path_to_image_dir terminal
+        if os.path.exists(os.path.join(FLAGS.path_to_image_dir, '0.jpg')):
+            folders = Path(FLAGS.path_to_image_dir)
+        else:
+            folders = [f for f in Path(FLAGS.path_to_image_dir).iterdir() if f.is_dir()]
+        
+        for folder in folders:
+            clips[folder.name + '.json'] = Path(os.path.join(folder, FLAGS.framedir_name)).glob('*')
 
-  predictions = []
+    # Path to frozen detection graph. This is the actual model that is used for the object detection.
+    detection_graph = tf.Graph()
+    with detection_graph.as_default():
+        od_graph_def = tf.GraphDef()
+        with tf.gfile.GFile(FLAGS.path_to_frozen_graph, 'rb') as fid:
+            serialized_graph = fid.read()
+            od_graph_def.ParseFromString(serialized_graph)
+            tf.import_graph_def(od_graph_def, name='')
 
-  with detection_graph.as_default():
-    with tf.Session() as sess:
-      image_tensor = tf.compat.v1.get_default_graph().get_tensor_by_name('image_tensor:0')
-      for image_name in TEST_IMAGE_PATHS:
-        image_path = os.path.join(PATH_TO_TEST_IMAGES_DIR, image_name)
-        image = Image.open(image_path)
-        # the array based representation of the image will be used later in order to prepare the
-        # result image with boxes and labels on it.
-        image_np = load_image_into_numpy_array(image)
-        # Expand dimensions since the model expects images to have shape: [1, None, None, 3]
-        image_np_expanded = np.expand_dims(image_np, axis=0)
+        with tf.Session() as sess:
+            tf.compat.v1.enable_eager_execution()
+            image_tensor = tf.compat.v1.get_default_graph().get_tensor_by_name('image_tensor:0')
 
-        tensor_dict = {}
-        for key in ['num_detections', 'detection_boxes']:
-          tensor_dict[key] = tf.get_default_graph().get_tensor_by_name(key + ':0')
+            tensor_dict = {}
+            for key in ['num_detections', 'detection_boxes', 'detection_scores']:
+                tensor_dict[key] = tf.get_default_graph().get_tensor_by_name(key + ':0')
 
-        # Run inference
-        output_dict = sess.run(tensor_dict, feed_dict={image_tensor: image_np_expanded})
-        bboxes = output_dict['detection_boxes'][0][:int(output_dict['num_detections'][0])].tolist()
+            for output_name, frames in clips.items():
+                predictions = []
 
-        prediction = {}
-        prediction['filename'] = image_path
-        prediction['class'] = {
-          'label': 1,
-          'text': 'fish'
-        }
-        prediction['object'] = {
-          'bbox': {
-            'xmin': [],
-            'xmax': [],
-            'ymin': [],
-            'ymax': [],
-            'label': []
-          },
-          'count': len(bboxes)
-        }
+                for image_path in frames:
+                    image_path = str(image_path)
+                    if FLAGS.verbose:
+                        print(image_path)
 
-        for bbox in bboxes:
-          prediction['object']['bbox']['xmin'].append(bbox[0])
-          prediction['object']['bbox']['xmax'].append(bbox[1])
-          prediction['object']['bbox']['ymin'].append(bbox[2])
-          prediction['object']['bbox']['ymax'].append(bbox[3])
-          prediction['object']['bbox']['label'].append(1)
-        predictions.append(prediction)
-  with open('./predictions.json' , 'w') as output:
-    json.dump(predictions, output)
+                    img = tf.io.read_file(image_path)
+                    img = tf.image.decode_jpeg(img, channels=3)
+                    height, width, _ = img.shape
+                    img = tf.image.resize(img, [IMG_HEIGHT, IMG_WIDTH]).numpy()[tf.newaxis]
+
+                    # Run inference
+                    output_dict = sess.run(tensor_dict, feed_dict={image_tensor: img})
+                    bboxes = output_dict['detection_boxes'][0][:int(output_dict['num_detections'][0])].tolist()
+                    scores = output_dict['detection_scores'][0][:int(output_dict['num_detections'][0])].tolist()
+
+                    prediction = {}
+                    prediction['filename'] = image_path
+                    prediction['class'] = {
+                        'label': 1,
+                        'text': 'fish'
+                    }
+                    prediction['height'] = int(height)
+                    prediction['width'] = int(width)
+                    prediction['object'] = {
+                        'bbox': {
+                            'xmin': [],
+                            'xmax': [],
+                            'ymin': [],
+                            'ymax': [],
+                            'label': [],
+                            'score': []
+                        },
+                        'count': len(bboxes)
+                    }
+
+                    for bbox, score in zip(bboxes, scores):
+                        prediction['object']['bbox']['xmin'].append(bbox[1])
+                        prediction['object']['bbox']['xmax'].append(bbox[3])
+                        prediction['object']['bbox']['ymin'].append(bbox[0])
+                        prediction['object']['bbox']['ymax'].append(bbox[2])
+                        prediction['object']['bbox']['label'].append(1)
+                        prediction['object']['bbox']['score'].append(score)
+                    print(prediction)
+                    predictions.append(prediction)
+
+                predictions = sorted(predictions, key=lambda x: int(Path(x['filename']).stem))
+
+                if FLAGS.output_json_name is not None:
+                    with open(FLAGS.output_json_name, 'w') as output:
+                        json.dump(predictions, output, indent=2)
+                    return
+                else:
+                    print(os.path.join(FLAGS.path_to_output_dir, output_name))
+                    with open(os.path.join(FLAGS.path_to_output_dir, output_name), 'w') as output:
+                        json.dump(predictions, output, indent=2)
 
 if __name__ == '__main__':
   app.run(main)
