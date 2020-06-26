@@ -71,22 +71,22 @@ def get_json_from_data(xml, framedir):
 			if int(polygon.findtext('s')):
 				stat_interp.append(bbox)
 			else:
-				points = np.array([int(polygon.findtext('pt/x')), int(polygon.findtext('pt/y')),
-					int(polygon.findall('pt/x')[2].text), int(polygon.findall('pt/y')[1].text)])
+				points = np.array([int(polygon.findtext('pt/x'))/image['width'], int(polygon.findtext('pt/y'))/image['height'],
+					int(polygon.findall('pt/x')[2].text)/image['width'], int(polygon.findall('pt/y')[1].text)/image['height']])
 
-				bbox['xmin'].append(int(points[0])/image['width'])
-				bbox['ymin'].append(int(points[1])/image['height'])
-				bbox['xmax'].append(int(points[2])/image['width'])
-				bbox['ymax'].append(int(points[3])/image['height'])
+				bbox['xmin'].append(points[0])
+				bbox['ymin'].append(points[1])
+				bbox['xmax'].append(points[2])
+				bbox['ymax'].append(points[3])
 				
 				# Interpolate if there are stationary boxes
 				if stat_interp:
-					bbox_interp = np.rint(last_drawn + np.dot(1 + np.array(range(len(stat_interp)))[:,np.newaxis], (points - last_drawn)[np.newaxis,:])/(len(stat_interp) + 1))
+					bbox_interp = last_drawn + np.dot(1 + np.array(range(len(stat_interp)))[:,np.newaxis], (points - last_drawn)[np.newaxis,:])/(len(stat_interp) + 1)
 					for object_bbox, bbox in zip(stat_interp, bbox_interp):
-						object_bbox['xmin'].append(bbox[0]/image['width'])
-						object_bbox['ymin'].append(bbox[1]/image['height'])
-						object_bbox['xmax'].append(bbox[2]/image['width'])
-						object_bbox['ymax'].append(bbox[3]/image['height'])
+						object_bbox['xmin'].append(bbox[0])
+						object_bbox['ymin'].append(bbox[1])
+						object_bbox['xmax'].append(bbox[2])
+						object_bbox['ymax'].append(bbox[3])
 					stat_interp = []
 				last_drawn = points
 					
