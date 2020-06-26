@@ -28,7 +28,7 @@ def main(argv):
 
 		ct = CentroidTracker(1.0, 1.0)
 
-		l_count, r_count, na_count = 0, 0, 0
+		l_count, r_count, o_count = 0, 0, 0
 		for i in range(len(frames)):
 			rects = []
 			for j in range(frames[i]['object']['count']):
@@ -41,9 +41,14 @@ def main(argv):
 			# Obtain counts in frame:
 			counts = ct.getCounts()
 
-			l_count, r_count, na_count = counts['left'], counts['right'], counts['NA']
+			l_count, r_count, o_count = counts['left'], counts['right'], counts['other']
 
-		print(f'{json_file}: Left: {l_count}, Right: {r_count}, N/A: {na_count}')
+		addCounts = ct.getRemainingFish()
+		l_count += addCounts['left']
+		r_count += addCounts['right']
+		o_count += addCounts['other']
+
+		print(f'{json_file}: Left: {l_count}, Right: {r_count}, Other: {o_count}')
 
 if __name__ == '__main__':
 	app.run(main)
