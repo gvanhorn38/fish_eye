@@ -56,7 +56,7 @@ $ python predict.py --path_to_frozen_graph [location of exported model] --path_t
 
 ### 3. Track and count fish
 
-To get direction counts from the predictions, run the following:
+To get direction counts from the predictions (this will print out counts of the number of right-going, left-going, and stationary fish), run the following:
 ```
 $ python fish_tracker.py --path_to_json [path_to_output_dir from previous step, either json or directory of jsons]
 ```
