@@ -23,7 +23,7 @@ store_annotations.py --xml_dir [location of annotations created in the previous 
 # Prediction:
 ### Generate images from source files:
 ```
-gen_clips.py --aris_dir [location of source files]
+gvh/gen_clips.py --aris_dir [location of source files]
              --clip_dir [location to output unzipped images]
              --river_name [eg. kenai]
              --river_location [eg. wa]
