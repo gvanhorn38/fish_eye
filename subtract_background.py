@@ -1,14 +1,11 @@
 from absl import app
 from absl import flags
 import cv2 as cv
-import glob
+import numpy as np
 import os
 
 flags.DEFINE_string(
     'input', None, 'Path to a video or a sequence of image.'
-)
-flags.DEFINE_integer(
-    'threshold', 22, 'Location of XML annotations (default is nested in clips).'
 )
 flags.DEFINE_string(
     'framedir_name', 'frames', 'Name of folder containing frames (eg. frames, frames-bs).'
@@ -17,25 +14,32 @@ FLAGS = flags.FLAGS
 
 def main(argv):
     for directory in os.listdir(FLAGS.input):
-        backSub = cv.createBackgroundSubtractorMOG2(1000, FLAGS.threshold)
+        backSubs = [cv.createBackgroundSubtractorKNN(1000, 200),
+                    cv.createBackgroundSubtractorMOG2(1000, 22),
+                    cv.createBackgroundSubtractorMOG2(1000, 15)]
         
         clipdir = os.path.join(FLAGS.input, directory)
         framedir = os.path.join(clipdir, FLAGS.framedir_name, '')
         newframedir = os.path.join(clipdir, FLAGS.framedir_name.rstrip('/') + '-bs/')
-        print(clipdir, framedir, newframedir)
+        
         if not os.path.exists(newframedir):
             os.mkdir(newframedir)
 
         # Populate backSub history
         for i in range(len(os.listdir(framedir))):
             frame = str(i) + '.jpg'
-            fgMask = backSub.apply(cv.imread(framedir + frame))
+            im = cv.imread(framedir + frame)
+            for backSub in backSubs:
+                backSub.apply(im)
 
         # Save file
         for i in range(len(os.listdir(framedir))):
             frame = str(i) + '.jpg'
-            fgMask = backSub.apply(cv.imread(framedir + frame))
-            cv.imwrite(newframedir + frame, fgMask)
+            im = cv.imread(framedir + frame)
+            out = []
+            for backSub in backSubs:
+                out.append(backSub.apply(im))
+            cv.imwrite(newframedir + frame, np.dstack(out))
         print(directory)
 
 if __name__ == '__main__':

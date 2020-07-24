@@ -206,8 +206,6 @@ def gen_clips(river_name, river_location, annot_file):
 		clip_name = f'''{river_name}_{river_location}_{date[:4]}_{date[5:7]}_{date[8:]}_{clip['time']}_{clip['num_fish']}'''
 		print(f'''\t{i+1}/{len(clips)} : {clip_name}''')
 		print(f'''\trange: {clip['interval'][0]} {clip['interval'][1]}''')
-		if clip_name != 'kenai_wa_2018_05_26_22_25_30_1':
-			continue
 
 		if not os.path.exists(os.path.join(FLAGS.clip_dir, clip_name)):
 			os.makedirs(os.path.join(FLAGS.clip_dir, clip_name))

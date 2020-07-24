@@ -79,9 +79,14 @@ def get_json_from_data(xml, framedir):
 				bbox['xmax'].append(points[2])
 				bbox['ymax'].append(points[3])
 				
+				# Coordinates of greater than 1.1 will cause training to fail
+				if (points > 1.1).any():
+					print('Error: Invalid bbox.')
+					continue
+
 				# Interpolate if there are stationary boxes
 				if stat_interp:
-					bbox_interp = last_drawn + np.dot(1 + np.array(range(len(stat_interp)))[:,np.newaxis], (points - last_drawn)[np.newaxis,:])/(len(stat_interp) + 1)
+					bbox_interp = last_drawn + np.dot(1 + np.array(range(len(stat_interp)))[:,np.newaxis], (points - last_drawn)[np.newaxis])/(len(stat_interp) + 1)
 					for object_bbox, bbox in zip(stat_interp, bbox_interp):
 						object_bbox['xmin'].append(bbox[0])
 						object_bbox['ymin'].append(bbox[1])

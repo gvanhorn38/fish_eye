@@ -1,24 +1,42 @@
-# fish_eye
-Analyzing ARIS data to detect, track, and count fish.
+# Download the exported model [here](https://bit.ly/frozen_trout)  
 
 
-# Compile C Functions
-
-You can run the makefile, created for Mac:
+# Converting ARIS into image zipfiles that can be provided to annotators:
 ```
-$ make
-```
-
-Or you can modify the below line to create the `.so` file for your own platform:
-```
-$ gcc -DNDEBUG -shared -Wl,-install_name,arisparse -o arisparse.so -fPIC -O1 -Wall parse.c
+gen_clips.py --aris_dir [location of source files]
+             --clip_dir [location to output unzipped images]
+             --river_name [eg. kenai]
+             --river_location [eg. wa]
+             --zip_location [location to output zipped images for annotation]
 ```
 
-# Example
+# Annotate zip files:
+https://kulits.github.io/vatic.js/index.html
 
-Run the code found in `example.py` in an ipython console, in the project directory. This should show the individual frames from the sample video.  
+# Convert outputs of annotation tool to common format:
+```
+store_annotations.py --xml_dir [location of annotations created in the previous step]
+                     --output_path [location of place to put converted annotations]
+                     --clip_dir [location of clip_dir from gen_clips.py]
+```
 
+# Prediction:
+### Generate images from source files:
+```
+gen_clips.py --aris_dir [location of source files]
+             --clip_dir [location to output unzipped images]
+             --river_name [eg. kenai]
+             --river_location [eg. wa]
+```
 
-# Generating GIFs
+### Predict on the images:
+```
+predict.py --path_to_frozen_graph [location of exported model]
+           --path_to_image_dir [clip_dir from previous step]
+           --path_to_output_dir [directory to output predictions]
+```
 
-To generate GIFs for observations, run the code found in `gen_gif.py` in an ipython console, in the project directory. Note that this code requires ARIS files containing the data we want to be stored in the `aris_samples` directory.
+### Create direction counts from predictions:
+```
+fish_tracker.py --path_to_json [path_to_output_dir from previous step]
+```
