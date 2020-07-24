@@ -70,10 +70,6 @@ class CentroidTracker():
 					if self.numFrames[key] > self.minOtherFrames:
 						leftoverCounts['other'] += 1
 
-			del self.objects[key]
-			del self.disappeared[key]
-			del self.numFrames[key]
-
 		return leftoverCounts
 
 
