@@ -3,7 +3,7 @@
 
 # Converting ARIS into image zipfiles that can be provided to annotators:
 ```
-gen_clips.py --aris_dir [location of source files]
+gvh/gen_clips.py --aris_dir [location of source files]
              --clip_dir [location to output unzipped images]
              --river_name [eg. kenai]
              --river_location [eg. wa]
