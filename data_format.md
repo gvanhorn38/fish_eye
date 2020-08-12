@@ -5,6 +5,7 @@ We are typically given an ARIS file and a "count file" that contains the human c
 {
     "aris_filename" :         // Path to the ARIS file
     "count_filename" :        // Path to the count file that was used to create this entry
+    "annotation_filename" :   // Path to the JSON annotation file (if this clip has been annotated)
     "camera_type" :           // ARIS camera type
     "start_frame" :           // Start frame for this "count event", used to index into the ARIS file
     "end_frame" :             // End frame for this "count event", used to index into the ARIS file
@@ -33,18 +34,10 @@ When a sequence of frames are annotated from an ARIS file (i.e. a "clip"), we wi
 
 ```
 {   // Annotation information for a single "clip"
+    "id" :                     // a unique clip id (perhaps in [0, N-1])
     "aris_filename" :          // the name of the associated aris file
     "start_frame" :            // Start frame for this "clip", used to index into the ARIS file
     "end_frame" :              // End frame for this "clip", used to index into the ARIS file
-    "aris_info" : {            // Needed for generating a warped image from the raw ARIS samples
-        "pixel_meter_size" : , // the size of a pixel in meters
-        "xdim" : ,             // the width of the warped image
-        "ydim" : ,             // the height of the warped image
-        "x_meter_start" : ,    // x start in meters 
-        "y_meter_start" : ,    // y start in meters
-        "x_meter_stop" : ,     // x stop in meters
-        "y_meter_stop' : ,     // y stop in meters
-    },
     "frames" : [                                      // Should have one entry for each frame
         {
             "frame_num" : ,                           // the frame number from the ARIS file
