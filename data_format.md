@@ -10,8 +10,9 @@ We are typically given an ARIS file and a "count file" that contains the human c
     "camera_type" :           // ARIS camera type
     "start_frame" :           // Start frame for this "count event", used to index into the ARIS file
     "end_frame" :             // End frame for this "count event", used to index into the ARIS file
-    "start_time" :            // Start time for this "count event"
-    "end_time " :             // End time for this "count event"
+    "start_time" :            // Start time in for this "count event" (this should be the sonartimestamp of the start_frame )
+    "end_time " :             // End time for this "count event" (this should be the sonartimestamp of the end_frame )
+    "upstream_direction" :    // Either `left` or `right`
     "fish_count" : {
         "left" : 
         "right" : 
@@ -39,6 +40,7 @@ When a sequence of frames are annotated from an ARIS file (i.e. a "clip"), we wi
     "aris_filename" :          // the name of the associated aris file
     "start_frame" :            // Start frame for this "clip", used to index into the ARIS file
     "end_frame" :              // End frame for this "clip", used to index into the ARIS file
+    "upstream_direction" :     // Either `left` or `right`
     "frames" : [                                      // Should have one entry for each frame
         {
             "frame_num" : ,                           // the frame number from the ARIS file
