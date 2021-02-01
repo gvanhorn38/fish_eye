@@ -144,7 +144,8 @@ def load_beam_width_data(frame, beam_width_dir):
 
     beam_width_fp = os.path.join(beam_width_dir, beam_width_fn)
 
-    return pd.read_csv(beam_width_fp)
+    # return pd.read_csv(beam_width_fp)
+    return (pd.read_csv(beam_width_fp), beam_width_fn.replace('.csv', ''))
 
 
 

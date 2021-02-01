@@ -6,7 +6,7 @@ We are typically given an ARIS file and a "count file" that contains the human c
     "clip_id" :               // Unique id for this clip (perhaps a UUID?)
     "aris_filename" :         // Path to the ARIS file
     "count_filename" :        // Path to the count file that was used to create this entry
-    "annotation_filename" :   // Path to the JSON annotation file (if this clip has been annotated)
+    "clip_name" :             // Basename of annotation files
     "camera_type" :           // ARIS camera type
     "start_frame" :           // Start frame for this "count event", used to index into the ARIS file
     "end_frame" :             // End frame for this "count event", used to index into the ARIS file
@@ -14,9 +14,10 @@ We are typically given an ARIS file and a "count file" that contains the human c
     "end_time " :             // End time for this "count event" (this should be the sonartimestamp of the end_frame )
     "upstream_direction" :    // Either `left` or `right`
     "fish_count" : {
-        "left" : 
-        "right" : 
-        "undefined" : 
+        "left" : 0+
+        "right" : 0+
+        "undefined" : 0+
+        "lengths" : [i.f, ...]
     },
     "aris_info" : {            // Needed for generating a warped image from the raw ARIS samples
         "pixel_meter_size" : , // the size of a pixel in meters
@@ -41,6 +42,7 @@ When a sequence of frames are annotated from an ARIS file (i.e. a "clip"), we wi
     "start_frame" :            // Start frame for this "clip", used to index into the ARIS file
     "end_frame" :              // End frame for this "clip", used to index into the ARIS file
     "upstream_direction" :     // Either `left` or `right`
+    "clip_meter_width" :       // Width of clip frames in meters
     "frames" : [                                      // Should have one entry for each frame
         {
             "frame_num" : ,                           // the frame number from the ARIS file
@@ -56,12 +58,12 @@ When a sequence of frames are annotated from an ARIS file (i.e. a "clip"), we wi
     ],
     "fish" : [                        // Should have one entry for each fish
         {
-            "id" :                    // fish track id (should be unique) (0 based, not unique across clips?)
+            "id" :                    // fish track id (should be unique) (0 based, not unique across clips)
             "length" :                // computed fish length in meters
-            "direction" :             // computed swimming direction {left, right, none?}
+            "direction" :             // computed swimming direction {left, right, none}
             "start_frame_index" :     // first frame this fish appears in
             "end_frame_index" :       // last frame this fish appears in 
-            "color" :                 // a unique hex color value for this fish? to make it convenient for rendering?
+            "color" :                 // a unique hex color value for this fish
         }
     ]
 }
