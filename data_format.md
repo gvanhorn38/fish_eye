@@ -5,30 +5,32 @@ We are typically given an ARIS file and a "count file" that contains the human c
 {   // Information for a single clip
     "clip_id" :               // Unique id for this clip (perhaps a UUID?)
     "aris_filename" :         // Path to the ARIS file
-    "count_filename" :        // Path to the count file that was used to create this entry
     "clip_name" :             // Basename of annotation files
-    "camera_type" :           // ARIS camera type
     "start_frame" :           // Start frame for this "count event", used to index into the ARIS file
     "end_frame" :             // End frame for this "count event", used to index into the ARIS file
     "start_time" :            // Start time in for this "count event" (this should be the sonartimestamp of the start_frame )
     "end_time " :             // End time for this "count event" (this should be the sonartimestamp of the end_frame )
     "upstream_direction" :    // Either `left` or `right`
-    "fish_count" : {
-        "left" : 0+
-        "right" : 0+
-        "undefined" : 0+
-        "lengths" : [i.f, ...]
-    },
+    "fish": [                  // Should have one entry for each fish
+        {
+            "frame" : ,        // Manual marking frame number
+            "direction" : ,    // Either `left`, `right`, or `undefined`
+            "length" : ,       // Length in meters
+            "x" : ,            // x position of marking
+            "y" : ,            // y position of marking
+        }
+    ],
     "aris_info" : {            // Needed for generating a warped image from the raw ARIS samples
-        "pixel_meter_size" : , // the size of a pixel in meters
-        "xdim" : ,             // the width of the warped image
-        "ydim" : ,             // the height of the warped image
+        "camera_type" : ,      // ARIS camera type
+        "framerate" : ,        // Frames per second
+        "pixel_meter_size" : , // The size of a pixel in meters
+        "xdim" : ,             // The width of the warped image
+        "ydim" : ,             // The height of the warped image
         "x_meter_start" : ,    // x start in meters 
         "y_meter_start" : ,    // y start in meters
         "x_meter_stop" : ,     // x stop in meters
         "y_meter_stop' : ,     // y stop in meters
-    },
-    
+    }
 }
 ```
 
@@ -42,7 +44,8 @@ When a sequence of frames are annotated from an ARIS file (i.e. a "clip"), we wi
     "start_frame" :            // Start frame for this "clip", used to index into the ARIS file
     "end_frame" :              // End frame for this "clip", used to index into the ARIS file
     "upstream_direction" :     // Either `left` or `right`
-    "clip_meter_width" :       // Width of clip frames in meters
+    "clip_meter_width" :       // Width of a frame in meters
+    "clip_meter_height" :      // Height of a frame in meters
     "frames" : [                                      // Should have one entry for each frame
         {
             "frame_num" : ,                           // the frame number from the ARIS file
