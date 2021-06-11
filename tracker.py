@@ -71,6 +71,20 @@ class Tracker:
             fish_entry['id'] = track_id
             fish_entry['length'] = -1
             
+            # top = False
+            # bottom = False
+            # for frame in json_data['frames']:
+            #     for frame_entry in frame['fish']:
+            #         if frame_entry['fish_id'] == track_id:
+            #             if frame_entry['bbox'][3] > vert_margin:
+            #                 top = True
+            #             if frame_entry['bbox'][1] < 1 - vert_margin:
+            #                 bottom = True
+            #             break
+
+            # if not top or not bottom:
+            #     continue
+            
             start_bbox = boxes[0][0]
             end_bbox = boxes[-1][0]
             fish_entry['direction'] = Tracker.get_direction(start_bbox, end_bbox)
