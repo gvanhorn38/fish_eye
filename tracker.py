@@ -95,15 +95,27 @@ class Tracker:
 
             json_data['fish'].append(fish_entry)
 
-        # filter tracks by length
+        # filter 'fish' field by fish length
         json_data = Fish_Length.add_lengths(json_data)
+        invalid_ids = []
         if min_length != -1.0:
             new_fish = []
             for fish in json_data['fish']:
                 if fish['length'] > min_length:
                     new_fish.append(fish)
+                else:
+                    invalid_ids.append(fish['id'])
             json_data['fish'] = new_fish
-
+        
+        # filter 'frames' field by fish length
+        if len(invalid_ids):
+            for frame in json_data['frames']:
+                new_fish = []
+                for fish in frame['fish']:
+                    if fish['fish_id'] not in invalid_ids:
+                        new_fish.append(fish)
+                frame['fish'] = new_fish
+            
         if output_path is not None:
             with open(output_path,'w') as output:
                 json.dump(json_data, output, indent=2)
