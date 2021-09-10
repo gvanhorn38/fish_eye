@@ -31,7 +31,7 @@ def linear_assignment(cost_matrix):
 
 def iou_batch(bb_test, bb_gt):                                                                                                   
     """                                                                                                                      
-    From SORT: Computes IOU between two bboxes in the form [l,t,w,h]                                                         
+    From SORT: Computes IOU between two bboxes in the form [x1,y1,x2,y2]                                                         
     """                                                                                                                      
     bb_gt = np.expand_dims(bb_gt, 0)                                                                                         
     bb_test = np.expand_dims(bb_test, 1)                                                                                     
@@ -201,24 +201,28 @@ class Sort(object):
         Params:
         dets - a numpy array of detections in the format [[x1,y1,x2,y2,score],[x1,y1,x2,y2,score],...]
         Requires: this method must be called once for each frame even with empty detections (use np.empty((0, 5)) for frames without detections).
-        Returns the a similar array, where the last column is the object ID.
-
-        NOTE: The number of objects returned may differ from the number of detections provided.
+        
+        Returns:
+            an array of detections in the format [[x1,y1,x2,y2,score,track_id],[x1,y1,x2,y2,score,track_id],...]
+            NOTE: The number of objects returned may differ from the number of detections provided.
         """
         self.frame_count += 1
         # get predicted locations from existing trackers.
-        trks = np.zeros((len(self.trackers), 5))
+        trks = np.zeros((len(self.trackers), 6))
         to_del = []
         ret = []
         for t, trk in enumerate(trks):
             pos = self.trackers[t].predict()[0]
-            trk[:] = [pos[0], pos[1], pos[2], pos[3], 0]
+            if len(pos) == 5: # score included
+                trk[:] = [*pos, 0]
+            else: # score not included - set score to -1
+                trk[:] = [*pos, -1, 0]
             if np.any(np.isnan(pos)):
                 to_del.append(t)
         trks = np.ma.compress_rows(np.ma.masked_invalid(trks))
         for t in reversed(to_del):
             self.trackers.pop(t)
-        matched, unmatched_dets, unmatched_trks = associate_detections_to_trackers(dets,trks, self.iou_threshold)
+        matched, unmatched_dets, unmatched_trks = associate_detections_to_trackers(dets, trks, self.iou_threshold)
 
         # update matched trackers with assigned detections
         for m in matched:
@@ -239,4 +243,4 @@ class Sort(object):
                 self.trackers.pop(i)
         if(len(ret)>0):
             return np.concatenate(ret)
-        return np.empty((0,5))
+        return np.empty((0,6))

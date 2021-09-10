@@ -16,13 +16,13 @@ class Tracker:
         self.frame_id = self.json_data['start_frame']
         self.json_data['frames'] = []
 
-    # Boxes should be given in normalized [x1,y1,x2,y2,c]
-    def update(self, dets=np.empty((0, 5))):
+    # Boxes should be given in normalized [x1,y1,x2,y2,score,track_id]
+    def update(self, dets=np.empty((0, 6))):
         new_frame_entries = []
         for track in self.algorithm.update(dets):
-            self.fish_ids[int(track[4])] += 1
+            self.fish_ids[int(track[5])] += 1
             new_frame_entries.append({
-                'fish_id': int(track[4]),
+                'fish_id': int(track[5]),
                 'bbox': list(track[:4]),
                 'score': track[4],
                 'visible': 1,
