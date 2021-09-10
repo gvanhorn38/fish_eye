@@ -55,6 +55,7 @@ When a sequence of frames are annotated from an ARIS file (i.e. a "clip"), we wi
                     "box" : [xmin, ymin, xmax, ymax]  // in normalized coordinates (multiply by `xdim` and `ydim` to get unnormalized coordinates)
                     "visible" :                       // 0 means not visible (is this necessary?), 1 means visible
                     "human_labeled" :                 // 1 or 0 for whether a human did the annotation or if it was interpolated 
+                    "score" :                         // [optional] confidence score of this detection. must be supplied during Tracker.update()
                 }
             ]
         }
