@@ -73,7 +73,7 @@ def convert_x_to_bbox(x,score=None):
     if(score==None):
         return np.array([x[0]-w/2.,x[1]-h/2.,x[0]+w/2.,x[1]+h/2.]).reshape((1,4))
     else:
-        return np.array([x[0]-w/2.,x[1]-h/2.,x[0]+w/2.,x[1]+h/2.,score]).reshape((1,5))
+        return np.array([x[0]-w/2.,x[1]-h/2.,x[0]+w/2.,x[1]+h/2.,np.array([score])]).reshape((1,5))
 
 
 class KalmanBoxTracker(object):
@@ -104,6 +104,9 @@ class KalmanBoxTracker(object):
         self.hits = 0
         self.hit_streak = 0
         self.age = 0
+        
+        # track score of last detection
+        self.curr_score = bbox[4]
 
     def update(self,bbox):
         """
@@ -114,6 +117,7 @@ class KalmanBoxTracker(object):
         self.hits += 1
         self.hit_streak += 1
         self.kf.update(convert_bbox_to_z(bbox))
+        self.curr_score = bbox[4]
 
     def predict(self):
         """
@@ -126,14 +130,14 @@ class KalmanBoxTracker(object):
         if(self.time_since_update>0):
             self.hit_streak = 0
         self.time_since_update += 1
-        self.history.append(convert_x_to_bbox(self.kf.x))
+        self.history.append(convert_x_to_bbox(self.kf.x, score=self.curr_score))
         return self.history[-1]
 
     def get_state(self):
         """
         Returns the current bounding box estimate.
         """
-        return convert_x_to_bbox(self.kf.x)
+        return convert_x_to_bbox(self.kf.x, score=self.curr_score)
 
 
 def associate_detections_to_trackers(detections,trackers,iou_threshold = 0.3):

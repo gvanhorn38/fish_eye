@@ -22,10 +22,11 @@ class Tracker:
         for track in self.algorithm.update(dets):
             self.fish_ids[int(track[4])] += 1
             new_frame_entries.append({
-            'fish_id': int(track[4]),
-            'bbox': list(track[:4]),
-            'visible': 1,
-            'human_labeled': 0
+                'fish_id': int(track[4]),
+                'bbox': list(track[:4]),
+                'score': track[4],
+                'visible': 1,
+                'human_labeled': 0
             })
         new_frame_entries = sorted(new_frame_entries, key=lambda k: k['fish_id']) 
 
